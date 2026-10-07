@@ -5,8 +5,8 @@
 <h1 align="center">kliknload</h1>
 
 <p align="center">
-  Click'n'Load receiver for macOS and Docker, written in Rust.<br>
-  Sends packages to pyLoad, any HTTP endpoint, files, shell commands or the clipboard.
+  Catches Click'n'Load links from your browser and sends them wherever you want:<br>
+  pyLoad, any HTTP endpoint, files, shell commands or the clipboard.
 </p>
 
 ---
@@ -21,7 +21,7 @@ packages and passes them to one or more **outputs**. It is a drop-in replacement
   files (txt, JSON, CSV, JDownloader crawljob, own template), shell commands, clipboard
 - **Per-output link filters** (include/exclude regex), live preview and test button
 - **Everything is in one JSON file**, so the GUI is optional; changes are picked up live
-- **Docker image** for headless use, secrets via environment variables
+- **Headless mode** for any system (`--headless`), also as a Docker image; secrets via environment variables
 
 ## Install (macOS)
 
