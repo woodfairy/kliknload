@@ -1,4 +1,4 @@
-//! OS integration: notifications, clipboard, dialogs, opening things, autostart.
+//! OS integration: clipboard, opening things, autostart. Notifications live in `notify`.
 
 #[cfg(target_os = "macos")]
 use anyhow::Context;
@@ -35,29 +35,7 @@ pub fn copy_to_clipboard(_text: &str) -> Result<()> {
     anyhow::bail!("Zwischenablage ist in dieser Version (headless/Docker) nicht verfügbar")
 }
 
-/// Escapes a string for use inside an AppleScript string literal.
-#[cfg(target_os = "macos")]
-fn applescript_str(s: &str) -> String {
-    format!("\"{}\"", s.replace('\\', "\\\\").replace('"', "\\\""))
-}
-
-#[cfg(target_os = "macos")]
-pub fn notify(title: &str, message: &str) {
-    let script = format!(
-        "display notification {} with title {}",
-        applescript_str(message),
-        applescript_str(title)
-    );
-    // Fire and forget, osascript takes a moment and must not block the caller.
-    if let Err(e) = Command::new("osascript").arg("-e").arg(script).spawn() {
-        warn!("notification failed: {e}");
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn notify(title: &str, message: &str) {
-    tracing::info!("[notification] {title}: {message}");
-}
+pub use crate::notify::notify;
 
 /// Opens a URL or file with the default application.
 pub fn open(target: &str) {

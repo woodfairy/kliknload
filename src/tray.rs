@@ -270,6 +270,8 @@ pub fn run(make_app: impl FnOnce(EventLoopProxy<UserEvent>) -> Arc<App>) -> ! {
                 Ok(t) => {
                     tray = Some(t);
                     rebuild = true;
+                    // Registers for Notification Center and asks for permission once.
+                    crate::notify::init();
                 }
                 Err(e) => {
                     error!("could not create menu bar icon: {e:#}");

@@ -19,6 +19,8 @@ packages and passes them to one or more **outputs**. It is a drop-in replacement
 - **macOS menu bar app** with a native settings window (SwiftUI, no web views)
 - **Outputs**: pyLoad, HTTP request builder (with presets for aria2, Discord, Slack, Gotify, ntfy),
   files (txt, JSON, CSV, JDownloader crawljob, own template), shell commands, clipboard
+- **Native desktop notifications** on macOS (Notification Center), Linux/BSD (freedesktop
+  notifications over D-Bus) and Windows (toasts), implemented without extra libraries
 - **Per-output link filters** (include/exclude regex), live preview and test button
 - **Everything is in one JSON file**, so the GUI is optional; changes are picked up live
 - **Headless mode** for any system (`--headless`), also as a Docker image; secrets via environment variables
@@ -117,6 +119,7 @@ kliknload --test-connection              log into the first pyLoad output
 kliknload config get | set               print / replace the config as JSON
 kliknload output preview | test          preview / try an output given as JSON on stdin
 kliknload autostart on | off             start at login (macOS LaunchAgent)
+kliknload notify-test [TEXT]             send a test desktop notification
 ```
 
 ## Development

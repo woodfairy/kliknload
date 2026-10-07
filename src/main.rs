@@ -15,6 +15,7 @@ mod config;
 mod icon;
 #[cfg(test)]
 mod mock_pyload;
+mod notify;
 mod outputs;
 mod platform;
 mod server;
@@ -38,6 +39,7 @@ USAGE:
     kliknload config get|set            print / replace the config as JSON (stdin)
     kliknload output preview|test       preview / try one output (JSON on stdin)
     kliknload autostart on|off          start at login (macOS)
+    kliknload notify-test [TEXT]        send a test desktop notification
 
 OPTIONS:
     --headless            Run without menu bar icon (terminal / Docker)
@@ -145,6 +147,19 @@ fn run_command(
         ["output", "test"] => rt.block_on(cli::output_test()),
         ["autostart", "on"] => cli::autostart(true),
         ["autostart", "off"] => cli::autostart(false),
+        ["notify-test", rest @ ..] => {
+            notify::init();
+            let message = if rest.is_empty() {
+                "Benachrichtigungen funktionieren".to_string()
+            } else {
+                rest.join(" ")
+            };
+            notify::send("kliknload", &message)?;
+            // Give asynchronous system APIs a moment before the process exits.
+            std::thread::sleep(std::time::Duration::from_secs(1));
+            println!("notification sent");
+            Ok(())
+        }
         #[cfg(feature = "gui")]
         ["render-icon", size, out] => {
             icon::write_app_icon_png(size.parse()?, std::path::Path::new(out))
