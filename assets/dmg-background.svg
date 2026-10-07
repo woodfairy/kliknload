@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" width="640" height="400">
+  <!-- DMG window background. Finder places kliknload.app at (170, 205) and Applications at (470, 205). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBFBFC"/>
+      <stop offset="1" stop-color="#ECECF1"/>
+    </linearGradient>
+    <marker id="head" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#FF6A2A"/>
+    </marker>
+  </defs>
+
+  <rect width="640" height="400" fill="url(#bg)"/>
+
+  <!-- Faint oversized mark in the corner -->
+  <g transform="translate(560 330) scale(0.62) translate(-249 -256)" opacity="0.045">
+    <path fill="#111318" fill-rule="evenodd" d="M104 88 Q104 72 120 72 H176 Q192 72 192 88 V204 L315 94 Q328 82 340 95 L382 141 Q394 154 380 166 L279 256 L380 346 Q394 358 382 371 L340 417 Q328 430 315 418 L192 308 V424 Q192 440 176 440 H120 Q104 440 104 424 Z M168 256 m-30 0 a30 30 0 1 0 60 0 a30 30 0 1 0 -60 0 Z"/>
+  </g>
+
+  <!-- Title -->
+  <text x="320" y="62" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="30" font-weight="700" fill="#111318" letter-spacing="-0.5">kliknload</text>
+  <circle cx="389" cy="40" r="4.5" fill="#FF6A2A"/>
+  <text x="320" y="88" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="13" fill="#6E6E73">Click'n'Load for pyLoad, HTTP, files and more</text>
+
+  <!-- Drag arrow between the two icons -->
+  <path d="M 252 196 C 300 160, 340 160, 386 196" fill="none" stroke="#FF6A2A" stroke-width="3.5"
+        stroke-linecap="round" stroke-dasharray="2 9" marker-end="url(#head)"/>
+
+  <!-- Hint -->
+  <text x="320" y="352" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif"
+        font-size="12" fill="#8E8E93">Drag kliknload into the Applications folder to install</text>
+</svg>

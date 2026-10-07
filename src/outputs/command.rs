@@ -42,6 +42,7 @@ fn environment(package: &Package, index: Option<usize>) -> Vec<(String, String)>
 }
 
 /// Apps started from Finder get a minimal PATH; add the usual Homebrew locations.
+#[cfg(not(windows))]
 fn path_env() -> String {
     let current = std::env::var("PATH").unwrap_or_default();
     let mut parts: Vec<&str> = current.split(':').filter(|p| !p.is_empty()).collect();

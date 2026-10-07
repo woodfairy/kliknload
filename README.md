@@ -14,7 +14,7 @@
 kliknload listens on `http://127.0.0.1:9666` like JDownloader, decrypts Click'n'Load (CNL2)
 packages and passes them to one or more **outputs**. It is a drop-in replacement for
 [pyload-clicknload](https://github.com/Laberbear/pyload-clicknload): the existing
-`pyloadConfig.json` keeps working and is migrated automatically.
+`pyloadConfig.json` keeps working and is migrated automatically; kliknload's own file is called `kliknload.json`.
 
 - **macOS menu bar app** with a native settings window (SwiftUI, no web views)
 - **Outputs**: pyLoad, HTTP request builder (with presets for aria2, Discord, Slack, Gotify, ntfy),
@@ -28,22 +28,24 @@ packages and passes them to one or more **outputs**. It is a drop-in replacement
 
 ## Install (macOS)
 
-Download `kliknload-…-macos.zip` from the releases, unzip, move `kliknload.app` to
-`Applications` and start it. Or build it yourself:
+1. Download `kliknload-<version>.dmg` from the
+   [releases](https://github.com/woodfairy/kliknload/releases) and open it.
+2. Drag kliknload into the Applications folder and start it.
+3. kliknload is not notarized by Apple, so macOS blocks the first start. Open
+   **System Settings → Privacy & Security** and click **Open Anyway**, or run
+   `xattr -dr com.apple.quarantine /Applications/kliknload.app` once.
+4. Allow notifications when asked, then set up your outputs via the menu bar icon →
+   **Settings…** (⌘,).
 
-```sh
-scripts/bundle.sh --install     # needs Rust and the Xcode command line tools
-```
-
-The menu bar icon has checkboxes for every output, recent packages and **Einstellungen…**
-(⌘,) for the settings window. The app is ad-hoc signed; on first launch use right click → Open.
+Build it yourself with `scripts/bundle.sh --install` (needs Rust and the Xcode command line
+tools); `scripts/dmg.sh` builds the disk image.
 
 ## Docker
 
 ```sh
 cp .env.example .env                                   # fill in your credentials
 mkdir -p docker/config
-cp docker/pyloadConfig.example.json docker/config/pyloadConfig.json
+cp docker/kliknload.example.json docker/config/kliknload.json
 docker compose up -d
 ```
 
@@ -51,13 +53,14 @@ Click'n'Load requests come from the browser to `127.0.0.1:9666` **of the same ma
 the container has to run where the browser runs. The compose file only publishes the port on
 localhost; do not expose it to the network. The image has no clipboard and no notifications.
 
-Images are published to `ghcr.io/woodfairy/kliknload` (`edge` = main, `latest` = newest release).
+Images are published to `ghcr.io/woodfairy/kliknload` with every release (`latest`, `1`, `1.0`, `1.0.0`).
 
 ## Configuration
 
 The config file is searched in this order: `--config <path>`, `$KLIKNLOAD_CONFIG`,
-`./pyloadConfig.json`, next to the binary, then
-`~/Library/Application Support/kliknload/pyloadConfig.json` (macOS default).
+`./kliknload.json`, `./pyloadConfig.json` (the pyload-clicknload name), the same two next to
+the binary, then `~/Library/Application Support/kliknload/kliknload.json` (macOS) or
+`~/.config/kliknload/kliknload.json` (Linux).
 
 `${NAME}` anywhere in a value is replaced by the environment variable `NAME`, so credentials
 can stay out of the file.
@@ -130,6 +133,7 @@ kliknload notify-test [TEXT]             send a test desktop notification
 cargo test                                   # all features (macOS)
 cargo test --no-default-features             # headless build as used in Docker
 scripts/bundle.sh                            # dist/kliknload.app
+scripts/dmg.sh                               # dist/kliknload-<version>.dmg
 ```
 
 `src/` is the Rust core, `settings/` the SwiftUI settings window. The window has no logic of

@@ -64,6 +64,7 @@ pub fn log_path() -> PathBuf {
 
 // ---- Start at login (macOS LaunchAgent) ----
 
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 pub const BUNDLE_ID: &str = "io.github.woodfairy.kliknload";
 #[cfg(target_os = "macos")]
 const AGENT_LABEL: &str = BUNDLE_ID;

@@ -45,8 +45,8 @@ USAGE:
 
 OPTIONS:
     --headless            Run without menu bar icon (terminal / Docker)
-    --config <PATH>       Config file (default: ./pyloadConfig.json if present,
-                          else ~/Library/Application Support/kliknload/pyloadConfig.json)
+    --config <PATH>       Config file (default: ./kliknload.json or ./pyloadConfig.json
+                          if present, else ~/Library/Application Support/kliknload/kliknload.json)
     --test-connection     Log into the first pyLoad output, print its version and exit
     -h, --help            Show this help
     -V, --version         Show version
@@ -189,6 +189,12 @@ fn run_command(
         ["render-icon", size, out] => {
             icon::write_app_icon_png(size.parse()?, std::path::Path::new(out))
         }
+        #[cfg(feature = "gui")]
+        ["render-svg", svg, width, out] => icon::render_svg_file(
+            std::path::Path::new(svg),
+            width.parse()?,
+            std::path::Path::new(out),
+        ),
         _ => bail!("unknown command: {}\n\n{HELP}", args.command.join(" ")),
     }
 }

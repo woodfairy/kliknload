@@ -67,12 +67,12 @@ jobs:
         run: python3 scripts/localization.py
       - name: Build universal app bundle
         run: scripts/bundle.sh --universal
-      - name: Zip
-        run: cd dist && ditto -c -k --keepParent kliknload.app kliknload-macos.zip
+      - name: Build disk image
+        run: scripts/dmg.sh
       - uses: actions/upload-artifact@v4
         with:
           name: kliknload-macos
-          path: dist/kliknload-macos.zip
+          path: dist/*.dmg
 
   docker:
     name: Docker image

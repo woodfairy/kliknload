@@ -25,7 +25,7 @@ RUN apt-get update \
 
 COPY --from=build /src/target/release/kliknload /usr/local/bin/kliknload
 
-ENV KLIKNLOAD_CONFIG=/config/pyloadConfig.json \
+ENV KLIKNLOAD_CONFIG=/config/kliknload.json \
     KLIKNLOAD_LISTEN=0.0.0.0:9666 \
     RUST_LOG=info
 VOLUME /config

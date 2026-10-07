@@ -9,7 +9,9 @@ use serde_json::{Map, Value};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-pub const CONFIG_FILE_NAME: &str = "pyloadConfig.json";
+pub const CONFIG_FILE_NAME: &str = "kliknload.json";
+/// Name used by pyload-clicknload; still read so kliknload stays a drop-in replacement.
+pub const LEGACY_CONFIG_FILE_NAME: &str = "pyloadConfig.json";
 pub const DEFAULT_LISTEN: &str = "127.0.0.1:9666";
 
 fn yes() -> bool {
@@ -611,7 +613,8 @@ impl Config {
     }
 }
 
-/// Default location: `~/Library/Application Support/kliknload/pyloadConfig.json` on macOS.
+/// Default location: `~/Library/Application Support/kliknload/kliknload.json` on macOS,
+/// `~/.config/kliknload/kliknload.json` on Linux.
 pub fn default_config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
@@ -620,8 +623,8 @@ pub fn default_config_path() -> PathBuf {
 }
 
 /// Resolves which config file to use:
-/// explicit path > `$KLIKNLOAD_CONFIG` > `./pyloadConfig.json` (like pyload-clicknload)
-/// > next to the executable > the default location.
+/// explicit path > `$KLIKNLOAD_CONFIG` > `./kliknload.json` > `./pyloadConfig.json`
+/// (like pyload-clicknload) > the same two next to the executable > the default location.
 pub fn resolve_config_path(explicit: Option<PathBuf>) -> PathBuf {
     if let Some(p) = explicit {
         return p;
@@ -629,20 +632,36 @@ pub fn resolve_config_path(explicit: Option<PathBuf>) -> PathBuf {
     if let Some(p) = std::env::var_os("KLIKNLOAD_CONFIG") {
         return PathBuf::from(p);
     }
-    let mut candidates = Vec::new();
+    let mut dirs = Vec::new();
     if let Ok(cwd) = std::env::current_dir() {
-        candidates.push(cwd.join(CONFIG_FILE_NAME));
+        dirs.push(cwd);
     }
     if let Some(dir) = std::env::current_exe()
         .ok()
         .and_then(|e| e.parent().map(Path::to_path_buf))
     {
-        candidates.push(dir.join(CONFIG_FILE_NAME));
+        dirs.push(dir);
     }
-    candidates
-        .into_iter()
-        .find(|p| p.is_file())
-        .unwrap_or_else(default_config_path)
+    let found = dirs
+        .iter()
+        .flat_map(|d| [d.join(CONFIG_FILE_NAME), d.join(LEGACY_CONFIG_FILE_NAME)])
+        .find(|p| p.is_file());
+    found.unwrap_or_else(|| {
+        let path = default_config_path();
+        migrate_legacy_default(&path);
+        path
+    })
+}
+
+/// kliknload 0.x kept its own config as `pyloadConfig.json` in the default folder;
+/// rename it once so the default location uses the new name.
+fn migrate_legacy_default(path: &Path) {
+    let Some(legacy) = path.parent().map(|d| d.join(LEGACY_CONFIG_FILE_NAME)) else {
+        return;
+    };
+    if !path.exists() && legacy.is_file() && std::fs::rename(&legacy, path).is_ok() {
+        tracing::info!("renamed {} to {}", legacy.display(), path.display());
+    }
 }
 
 #[cfg(test)]
@@ -706,6 +725,20 @@ mod tests {
         cfg.outputs[1].include = Some("(".into());
         let errors = cfg.validate();
         assert_eq!(errors.len(), 4, "{errors:?}");
+    }
+
+    #[test]
+    fn renames_legacy_default_file_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let new = dir.path().join(CONFIG_FILE_NAME);
+        std::fs::write(dir.path().join(LEGACY_CONFIG_FILE_NAME), "{}").unwrap();
+        migrate_legacy_default(&new);
+        assert!(new.is_file());
+        assert!(!dir.path().join(LEGACY_CONFIG_FILE_NAME).exists());
+        // An existing new file is never overwritten.
+        std::fs::write(dir.path().join(LEGACY_CONFIG_FILE_NAME), "{\"x\":1}").unwrap();
+        migrate_legacy_default(&new);
+        assert_eq!(std::fs::read_to_string(&new).unwrap(), "{}");
     }
 
     #[test]

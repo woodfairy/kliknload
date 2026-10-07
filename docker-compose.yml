@@ -12,7 +12,7 @@ services:
     volumes:
       - ./docker/config:/config
     # Secrets come from .env (see .env.example) and are referenced as ${NAME}
-    # in docker/config/pyloadConfig.json, so the config file holds no credentials.
+    # in docker/config/kliknload.json, so the config file holds no credentials.
     env_file:
       - path: .env
         required: false

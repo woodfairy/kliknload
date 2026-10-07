@@ -19,6 +19,8 @@ use std::time::Duration;
 use tracing::{debug, info};
 
 /// Whether the system allows kliknload to show notifications.
+/// Only macOS reports all of these.
+#[cfg_attr(not(target_os = "macos"), allow(dead_code))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Permission {
     Granted,

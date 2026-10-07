@@ -41,6 +41,25 @@ pub fn write_app_icon_png(size: u32, path: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
+/// Renders any SVG file (with system fonts for text) to a PNG of the given width.
+/// Used by scripts/dmg.sh for the disk image background.
+pub fn render_svg_file(svg: &std::path::Path, width: u32, out: &std::path::Path) -> Result<()> {
+    let mut options = usvg::Options::default();
+    options.fontdb_mut().load_system_fonts();
+    let data = std::fs::read(svg).with_context(|| format!("reading {}", svg.display()))?;
+    let tree = usvg::Tree::from_data(&data, &options)?;
+    let scale = width as f32 / tree.size().width();
+    let height = (tree.size().height() * scale).round() as u32;
+    let mut pixmap = tiny_skia::Pixmap::new(width, height).context("pixmap")?;
+    resvg::render(
+        &tree,
+        tiny_skia::Transform::from_scale(scale, scale),
+        &mut pixmap.as_mut(),
+    );
+    pixmap.save_png(out).context("writing png")?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
