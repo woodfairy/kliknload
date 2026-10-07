@@ -42,6 +42,31 @@ struct GeneralView: View {
                 Toggle("Doppelte Links entfernen", isOn: $store.config.dedupeLinks)
             }
 
+            Section {
+                LabeledContent("Status") {
+                    Label(notificationLabel.0, systemImage: notificationLabel.1)
+                        .foregroundStyle(notificationLabel.2)
+                }
+                HStack {
+                    Button("Systemeinstellungen öffnen") { store.openNotificationSettings() }
+                    Button("Test senden") { Task { await store.sendTestNotification() } }
+                    if let result = store.notificationTestResult {
+                        Text(result).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+            } header: {
+                Text("Mitteilungen")
+            } footer: {
+                if store.notificationStatus == "denied" {
+                    Text("macOS fragt nicht erneut nach. Mitteilungen für kliknload in den Systemeinstellungen erlauben.")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                Task { await store.refreshNotificationStatus() }
+            }
+
             Section("System") {
                 Toggle("Bei der Anmeldung starten", isOn: Binding(
                     get: { store.autostart },
@@ -81,5 +106,14 @@ struct GeneralView: View {
         }
         .formStyle(.grouped)
         .navigationTitle("Allgemein")
+    }
+
+    private var notificationLabel: (String, String, Color) {
+        switch store.notificationStatus {
+        case "granted": ("Erlaubt", "checkmark.circle.fill", .green)
+        case "denied": ("In den Systemeinstellungen ausgeschaltet", "bell.slash.fill", .orange)
+        case "notDetermined": ("Noch nicht gefragt – „Test senden“ fragt nach", "questionmark.circle", .secondary)
+        default: ("Unbekannt", "questionmark.circle", .secondary)
+        }
     }
 }

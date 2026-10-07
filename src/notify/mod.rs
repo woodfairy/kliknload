@@ -15,7 +15,54 @@ mod macos;
 mod windows;
 
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use tracing::{debug, info};
+
+/// Whether the system allows kliknload to show notifications.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Permission {
+    Granted,
+    Denied,
+    /// macOS has not asked the user yet.
+    NotDetermined,
+    /// The platform has no queryable permission (Linux, Windows, unbundled macOS).
+    Unknown,
+}
+
+impl Permission {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Permission::Granted => "granted",
+            Permission::Denied => "denied",
+            Permission::NotDetermined => "notDetermined",
+            Permission::Unknown => "unknown",
+        }
+    }
+}
+
+pub fn permission() -> Permission {
+    #[cfg(target_os = "macos")]
+    return macos::permission();
+    #[cfg(not(target_os = "macos"))]
+    Permission::Unknown
+}
+
+/// Asks for permission if needed and waits for the user's answer.
+pub fn wait_for_decision(timeout: Duration) -> Permission {
+    #[cfg(target_os = "macos")]
+    return macos::wait_for_decision(timeout);
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = timeout;
+        Permission::Unknown
+    }
+}
+
+/// Opens the system's notification settings for kliknload (macOS only).
+pub fn open_settings() {
+    #[cfg(target_os = "macos")]
+    macos::open_settings();
+}
 
 /// Prepares notifications. On macOS this registers the delegate and asks for permission,
 /// so it should run once on the main thread at startup of the menu bar app.

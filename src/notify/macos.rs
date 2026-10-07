@@ -4,9 +4,12 @@
 //! UNUserNotificationCenter only works inside an app bundle. When kliknload runs as a
 //! plain binary (e.g. `cargo run`, `--headless` in a terminal), `osascript` is used.
 
+use super::Permission;
 use anyhow::{Result, bail};
 use std::ffi::{CStr, CString, c_char, c_void};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 use tracing::{info, warn};
 
 type Id = *mut c_void;
@@ -135,7 +138,14 @@ unsafe extern "C" fn will_present(
     }
 }
 
+/// Set once the permission request has been answered (or failed).
+static REQUEST_DONE: AtomicBool = AtomicBool::new(false);
+/// Last `UNAuthorizationStatus` and how often it was fetched.
+static STATUS: AtomicI64 = AtomicI64::new(-1);
+static STATUS_FETCHES: AtomicU64 = AtomicU64::new(0);
+
 unsafe extern "C" fn authorization_done(_block: *mut c_void, granted: bool, error: Id) {
+    REQUEST_DONE.store(true, Ordering::SeqCst);
     if granted {
         info!("notification permission granted");
     } else if error.is_null() {
@@ -189,6 +199,70 @@ pub fn init() {
             AUTH_ALERT | AUTH_SOUND => usize, done.cast::<c_void>() => *const c_void; -> ());
         objc_autoreleasePoolPop(pool);
     });
+}
+
+unsafe extern "C" fn settings_done(_block: *mut c_void, settings: Id) {
+    let status = if settings.is_null() {
+        -1
+    } else {
+        unsafe { msg!(settings, "authorizationStatus"; -> isize) as i64 }
+    };
+    STATUS.store(status, Ordering::SeqCst);
+    STATUS_FETCHES.fetch_add(1, Ordering::SeqCst);
+}
+
+fn wait_until(timeout: Duration, done: impl Fn() -> bool) -> bool {
+    let start = Instant::now();
+    while !done() {
+        if start.elapsed() > timeout {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    true
+}
+
+/// Current permission as shown in System Settings → Notifications.
+pub fn permission() -> Permission {
+    if !bundled() {
+        return Permission::Unknown;
+    }
+    let before = STATUS_FETCHES.load(Ordering::SeqCst);
+    unsafe {
+        let pool = objc_autoreleasePoolPush();
+        let center = msg!(class("UNUserNotificationCenter"), "currentNotificationCenter"; -> Id);
+        let done = global_block(settings_done as unsafe extern "C" fn(*mut c_void, Id));
+        msg!(center, "getNotificationSettingsWithCompletionHandler:", done.cast::<c_void>() => *const c_void; -> ());
+        objc_autoreleasePoolPop(pool);
+    }
+    if !wait_until(Duration::from_secs(2), || {
+        STATUS_FETCHES.load(Ordering::SeqCst) != before
+    }) {
+        return Permission::Unknown;
+    }
+    // UNAuthorizationStatus: notDetermined, denied, authorized, provisional, ephemeral
+    match STATUS.load(Ordering::SeqCst) {
+        0 => Permission::NotDetermined,
+        1 => Permission::Denied,
+        2..=4 => Permission::Granted,
+        _ => Permission::Unknown,
+    }
+}
+
+/// Waits until the user answered the permission prompt (if one is shown).
+pub fn wait_for_decision(timeout: Duration) -> Permission {
+    init();
+    wait_until(timeout, || REQUEST_DONE.load(Ordering::SeqCst));
+    permission()
+}
+
+/// Opens kliknload's page in System Settings → Notifications.
+pub fn open_settings() {
+    let url = format!(
+        "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id={}",
+        crate::platform::BUNDLE_ID
+    );
+    let _ = std::process::Command::new("open").arg(url).spawn();
 }
 
 pub fn notify(title: &str, message: &str) -> Result<()> {

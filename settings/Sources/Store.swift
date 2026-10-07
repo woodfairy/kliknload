@@ -17,6 +17,9 @@ final class Store: ObservableObject {
     @Published var logPath = ""
     @Published var version = ""
     @Published var saving = false
+    /// granted | denied | notDetermined | unknown
+    @Published var notificationStatus = "unknown"
+    @Published var notificationTestResult: String?
 
     private var loaded = false
     private var saveTask: Task<Void, Never>?
@@ -88,6 +91,7 @@ final class Store: ObservableObject {
             logPath = r.logPath
             version = r.version
             loaded = true
+            await refreshNotificationStatus()
         } catch {
             loadError = "kliknload-Kern nicht erreichbar (\(cli.path)): \(error.localizedDescription)"
         }
@@ -137,6 +141,30 @@ final class Store: ObservableObject {
         if let r: R = try? await call(["autostart", on ? "on" : "off"]) {
             autostart = r.autostart
         }
+    }
+
+    func refreshNotificationStatus() async {
+        struct R: Codable { var status: String }
+        if let r: R = try? await call(["notify-status"]) {
+            notificationStatus = r.status
+        }
+    }
+
+    func openNotificationSettings() {
+        Task { _ = try? await Store.run(cli, ["notify-settings"], input: nil) }
+    }
+
+    func sendTestNotification() async {
+        notificationTestResult = nil
+        do {
+            let data = try await Store.run(cli, configArg + ["notify-test"], input: nil)
+            notificationTestResult = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) == "notification sent"
+                ? "Gesendet" : "Fehlgeschlagen"
+        } catch {
+            notificationTestResult = error.localizedDescription
+        }
+        await refreshNotificationStatus()
     }
 
     // MARK: - Editing helpers

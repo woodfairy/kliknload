@@ -18,12 +18,15 @@ use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 pub enum UserEvent {
     Menu(MenuEvent),
     App(AppEvent),
+    /// Notification permission changed (checked periodically).
+    NotificationsDenied(bool),
 }
 
 mod id {
     pub const OPEN_PYLOAD: &str = "open_pyload";
     pub const SETTINGS: &str = "settings";
     pub const OPEN_LOG: &str = "open_log";
+    pub const NOTIFY_SETTINGS: &str = "notify_settings";
     pub const QUIT: &str = "quit";
     pub const OUTPUT_PREFIX: &str = "output:";
     pub const HISTORY_PREFIX: &str = "history:";
@@ -78,10 +81,22 @@ fn status_label(status: &ServerStatus) -> String {
 }
 
 /// Builds the whole menu from the current state. Cheap enough to redo on every change.
-fn build_menu(app: &App, status: &ServerStatus) -> anyhow::Result<Menu> {
+fn build_menu(
+    app: &App,
+    status: &ServerStatus,
+    notifications_denied: bool,
+) -> anyhow::Result<Menu> {
     let cfg = app.config();
     let menu = Menu::new();
     menu.append(&MenuItem::new(status_label(status), false, None))?;
+    if notifications_denied {
+        menu.append(&MenuItem::with_id(
+            id::NOTIFY_SETTINGS,
+            "⚠ Mitteilungen sind aus – aktivieren…",
+            true,
+            None,
+        ))?;
+    }
     menu.append(&PredefinedMenuItem::separator())?;
 
     for o in &cfg.outputs {
@@ -198,6 +213,7 @@ fn handle_menu(app: &Arc<App>, event: &MenuEvent, control_flow: &mut ControlFlow
         }
         id::SETTINGS => open_settings(app),
         id::OPEN_LOG => platform::open(&platform::log_path().display().to_string()),
+        id::NOTIFY_SETTINGS => crate::notify::open_settings(),
         id::QUIT => *control_flow = ControlFlow::Exit,
         other => {
             if let Some(output_id) = other.strip_prefix(id::OUTPUT_PREFIX) {
@@ -235,11 +251,22 @@ fn handle_menu(app: &Arc<App>, event: &MenuEvent, control_flow: &mut ControlFlow
 }
 
 fn create_tray() -> anyhow::Result<TrayIcon> {
-    let icon = Icon::from_rgba(icon::tray_rgba()?, icon::TRAY_SIZE, icon::TRAY_SIZE)?;
-    Ok(TrayIconBuilder::new()
-        .with_icon_templated(icon)
-        .with_tooltip("kliknload – Click'n'Load")
-        .build()?)
+    #[allow(unused_mut)]
+    let mut rgba = icon::tray_rgba()?;
+    let builder = TrayIconBuilder::new().with_tooltip("kliknload – Click'n'Load");
+    // macOS tints template images for light and dark menu bars itself.
+    #[cfg(target_os = "macos")]
+    let builder =
+        builder.with_icon_templated(Icon::from_rgba(rgba, icon::TRAY_SIZE, icon::TRAY_SIZE)?);
+    // Elsewhere the taskbar is usually dark: draw the silhouette in white.
+    #[cfg(not(target_os = "macos"))]
+    let builder = {
+        for px in rgba.chunks_mut(4) {
+            px[..3].fill(255);
+        }
+        builder.with_icon(Icon::from_rgba(rgba, icon::TRAY_SIZE, icon::TRAY_SIZE)?)
+    };
+    Ok(builder.build()?)
 }
 
 /// Runs the menu bar UI on the main thread. Never returns.
@@ -258,7 +285,32 @@ pub fn run(make_app: impl FnOnce(EventLoopProxy<UserEvent>) -> Arc<App>) -> ! {
         let _ = menu_proxy.send_event(UserEvent::Menu(e));
     }));
 
+    // macOS never asks again once notifications were turned off; watch for that and
+    // offer a shortcut to the right System Settings page.
+    let permission_proxy = proxy.clone();
+    std::thread::spawn(move || {
+        let mut last = None;
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(if last.is_none() {
+                3
+            } else {
+                20
+            }));
+            let denied = crate::notify::permission() == crate::notify::Permission::Denied;
+            if last != Some(denied) {
+                last = Some(denied);
+                if permission_proxy
+                    .send_event(UserEvent::NotificationsDenied(denied))
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        }
+    });
+
     let app = make_app(proxy);
+    let mut notifications_denied = false;
     let mut tray: Option<TrayIcon> = None;
     let mut status = ServerStatus::Starting;
 
@@ -285,6 +337,10 @@ pub fn run(make_app: impl FnOnce(EventLoopProxy<UserEvent>) -> Arc<App>) -> ! {
             Event::UserEvent(UserEvent::App(AppEvent::Handled | AppEvent::ConfigChanged)) => {
                 rebuild = true
             }
+            Event::UserEvent(UserEvent::NotificationsDenied(denied)) => {
+                notifications_denied = denied;
+                rebuild = true;
+            }
             Event::UserEvent(UserEvent::Menu(e)) => {
                 handle_menu(&app, &e, control_flow);
                 rebuild = true;
@@ -292,7 +348,7 @@ pub fn run(make_app: impl FnOnce(EventLoopProxy<UserEvent>) -> Arc<App>) -> ! {
             _ => {}
         }
         if rebuild && let Some(tray) = &tray {
-            match build_menu(&app, &status) {
+            match build_menu(&app, &status, notifications_denied) {
                 Ok(menu) => tray.set_menu(Some(Box::new(menu))),
                 Err(e) => error!("menu: {e:#}"),
             }

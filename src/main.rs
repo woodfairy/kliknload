@@ -148,7 +148,21 @@ fn run_command(
         ["autostart", "on"] => cli::autostart(true),
         ["autostart", "off"] => cli::autostart(false),
         ["notify-test", rest @ ..] => {
-            notify::init();
+            if notify::permission() == notify::Permission::NotDetermined {
+                eprintln!("Bitte die Mitteilungs-Abfrage von macOS beantworten …");
+            }
+            match notify::wait_for_decision(std::time::Duration::from_secs(120)) {
+                notify::Permission::Denied => {
+                    notify::open_settings();
+                    bail!(
+                        "Mitteilungen sind für kliknload ausgeschaltet (Systemeinstellungen → Mitteilungen)"
+                    );
+                }
+                notify::Permission::NotDetermined => {
+                    bail!("Mitteilungs-Abfrage wurde nicht beantwortet")
+                }
+                _ => {}
+            }
             let message = if rest.is_empty() {
                 "Benachrichtigungen funktionieren".to_string()
             } else {
@@ -158,6 +172,17 @@ fn run_command(
             // Give asynchronous system APIs a moment before the process exits.
             std::thread::sleep(std::time::Duration::from_secs(1));
             println!("notification sent");
+            Ok(())
+        }
+        ["notify-status"] => {
+            println!(
+                "{}",
+                serde_json::json!({ "status": notify::permission().as_str() })
+            );
+            Ok(())
+        }
+        ["notify-settings"] => {
+            notify::open_settings();
             Ok(())
         }
         #[cfg(feature = "gui")]
