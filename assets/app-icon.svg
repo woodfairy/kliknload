@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- macOS app icon: light rounded square with the kliknload mark -->
+  <rect x="100" y="100" width="824" height="824" rx="185" ry="185" fill="#F4F4F6"/>
+  <rect x="100.5" y="100.5" width="823" height="823" rx="185" ry="185" fill="none" stroke="#000000" stroke-opacity="0.08" stroke-width="2"/>
+  <g transform="translate(512 512) scale(1.42) translate(-249 -256)">
+    <path fill="#111318" fill-rule="evenodd" d="M104 88 Q104 72 120 72 H176 Q192 72 192 88 V204 L315 94 Q328 82 340 95 L382 141 Q394 154 380 166 L279 256 L380 346 Q394 358 382 371 L340 417 Q328 430 315 418 L192 308 V424 Q192 440 176 440 H120 Q104 440 104 424 Z M168 256 m-30 0 a30 30 0 1 0 60 0 a30 30 0 1 0 -60 0 Z"/>
+    <circle cx="168" cy="256" r="12" fill="#FF6A2A"/>
+  </g>
+</svg>

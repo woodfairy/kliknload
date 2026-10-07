@@ -1,0 +1,9 @@
+target
+dist
+.git
+.github
+settings
+docker/config
+*.md
+.env
+pyloadConfig.json

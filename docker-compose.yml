@@ -1,0 +1,20 @@
+# Click'n'Load only works if the container runs on the same machine as the browser:
+# websites post to http://127.0.0.1:9666 of the computer they are opened on.
+services:
+  kliknload:
+    image: ghcr.io/woodfairy/kliknload:latest
+    build: .
+    container_name: kliknload
+    restart: unless-stopped
+    ports:
+      # Only reachable from this machine. Never expose 9666 to the network.
+      - "127.0.0.1:9666:9666"
+    volumes:
+      - ./docker/config:/config
+    # Secrets come from .env (see .env.example) and are referenced as ${NAME}
+    # in docker/config/pyloadConfig.json, so the config file holds no credentials.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: ${TZ:-Europe/Berlin}

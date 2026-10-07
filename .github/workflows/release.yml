@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin, x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+      - name: Check version matches tag
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          [ "v$version" = "${GITHUB_REF_NAME}" ] || { echo "Cargo.toml has $version, tag is ${GITHUB_REF_NAME}"; exit 1; }
+      - run: scripts/bundle.sh --universal
+      - run: cd dist && ditto -c -k --keepParent kliknload.app "kliknload-${GITHUB_REF_NAME}-macos.zip"
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/kliknload-*-macos.zip
+          generate_release_notes: true

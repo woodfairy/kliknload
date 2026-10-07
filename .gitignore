@@ -1,0 +1,9 @@
+/target
+/dist
+# Personal configuration and secrets never go into git
+pyloadConfig.json
+!docker/pyloadConfig.example.json
+docker/config/
+.env
+*.local.json
+.DS_Store

@@ -1,0 +1,31 @@
+{
+  "listen": "0.0.0.0:9666",
+  "notifications": "errors",
+  "clipboardFallback": false,
+  "dedupeLinks": true,
+  "outputs": [
+    {
+      "id": "pyload",
+      "name": "pyLoad",
+      "enabled": true,
+      "type": "pyload",
+      "url": "${PYLOAD_URL}",
+      "user": "${PYLOAD_USER}",
+      "password": "${PYLOAD_PASSWORD}",
+      "apiKey": "${PYLOAD_API_KEY}",
+      "destination": "queue",
+      "packageName": "{{package}}"
+    },
+    {
+      "id": "file",
+      "name": "Linkliste",
+      "enabled": true,
+      "type": "file",
+      "directory": "/config/links",
+      "filename": "links.jsonl",
+      "format": "json",
+      "mode": "append",
+      "onConflict": "number"
+    }
+  ]
+}
