@@ -1,7 +1,11 @@
 //! OS integration: notifications, clipboard, dialogs, opening things, autostart.
 
-use anyhow::{Context, Result};
-use std::path::{Path, PathBuf};
+#[cfg(target_os = "macos")]
+use anyhow::Context;
+use anyhow::Result;
+#[cfg(target_os = "macos")]
+use std::path::Path;
+use std::path::PathBuf;
 use std::process::Command;
 use tracing::warn;
 
