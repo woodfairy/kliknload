@@ -12,7 +12,7 @@ struct OutputView: View {
             Section {
                 Toggle(isOn: $output.enabled) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Aktiv")
+                        Text("Enabled")
                         Text(output.kind.summary).font(.callout).foregroundStyle(.secondary)
                     }
                 }
@@ -28,14 +28,14 @@ struct OutputView: View {
             }
 
             Section {
-                TextField("Nur Links, die passen", text: $output.include, prompt: Text("z.B. rapidgator|ddownload"))
+                TextField("Only links matching", text: $output.include, prompt: Text(verbatim: "rapidgator|ddownload"))
                     .font(.body.monospaced())
-                TextField("Links ausschließen", text: $output.exclude, prompt: Text("z.B. \\.sfv$"))
+                TextField("Exclude links matching", text: $output.exclude, prompt: Text(verbatim: "\\.sfv$"))
                     .font(.body.monospaced())
             } header: {
-                Text("Link-Filter")
+                Text("Link filter")
             } footer: {
-                Text("Reguläre Ausdrücke. Leer lassen, um alle Links weiterzugeben.").foregroundStyle(.secondary)
+                Text("Regular expressions. Leave empty to pass on all links.").foregroundStyle(.secondary)
             }
 
             let problems = store.problems(for: output)
@@ -52,15 +52,15 @@ struct OutputView: View {
             Section {
                 HStack {
                     Spacer()
-                    Button("Ausgabe entfernen…", role: .destructive) { confirmDelete = true }
+                    Button("Remove output…", role: .destructive) { confirmDelete = true }
                 }
             }
         }
         .formStyle(.grouped)
         .navigationTitle(output.displayName)
         .navigationSubtitle(output.kind.label)
-        .confirmationDialog("„\(output.displayName)“ entfernen?", isPresented: $confirmDelete) {
-            Button("Entfernen", role: .destructive, action: onDelete)
+        .confirmationDialog("Remove “\(output.displayName)”?", isPresented: $confirmDelete) {
+            Button("Remove", role: .destructive, action: onDelete)
         }
     }
 }
@@ -72,21 +72,21 @@ struct PyloadSection: View {
 
     var body: some View {
         Section {
-            TextField("URL", text: $output.url, prompt: Text("https://pyload.example.org"))
-            TextField("Benutzer", text: $output.user)
-            SecureField("Passwort", text: $output.password)
-            SecureField("API-Key", text: $output.apiKey, prompt: Text("optional, pl_…"))
+            TextField("URL", text: $output.url, prompt: Text(verbatim: "https://pyload.example.org"))
+            TextField("User", text: $output.user)
+            SecureField("Password", text: $output.password)
+            SecureField("API key", text: $output.apiKey, prompt: Text(verbatim: "pl_…"))
         } header: {
-            Text("pyLoad")
+            Text(verbatim: "pyLoad")
         } footer: {
-            Text("Ist ein API-Key gesetzt, wird er statt Benutzer und Passwort verwendet.").foregroundStyle(.secondary)
+            Text("If an API key is set, it is used instead of user and password.").foregroundStyle(.secondary)
         }
-        Section("Paket") {
-            Picker("Ziel", selection: $output.destination) {
-                Text("Warteschlange").tag("queue")
-                Text("Linksammler").tag("collector")
+        Section("Package") {
+            Picker("Destination", selection: $output.destination) {
+                Text("Queue").tag("queue")
+                Text("Link collector").tag("collector")
             }
-            TemplateField(title: "Paketname", text: $output.packageName)
+            TemplateField(title: "Package name", text: $output.packageName)
         }
     }
 }
@@ -101,12 +101,12 @@ struct ClipboardSection: View {
             CodeEditor(text: $output.template, minHeight: 70)
         } header: {
             HStack {
-                Text("Inhalt")
+                Text("Content")
                 Spacer()
                 TemplateHelpButton()
             }
         } footer: {
-            Text("Standard: {{links}}, ein Link pro Zeile.").foregroundStyle(.secondary)
+            Text("Default: {{links}}, one link per line.").foregroundStyle(.secondary)
         }
     }
 }
@@ -117,41 +117,41 @@ struct FileSection: View {
     @Binding var output: OutputConfig
 
     var body: some View {
-        Section("Speicherort") {
-            LabeledContent("Ordner") {
+        Section("Location") {
+            LabeledContent("Folder") {
                 HStack {
-                    TextField("", text: $output.directory, prompt: Text("~/Downloads/kliknload"))
+                    TextField("", text: $output.directory, prompt: Text(verbatim: "~/Downloads/kliknload"))
                         .labelsHidden()
-                    Button("Auswählen…") { chooseFolder() }
+                    Button("Choose…") { chooseFolder() }
                 }
             }
-            TemplateField(title: "Dateiname", text: $output.filename,
-                          footnote: "„/“ legt Unterordner an, z.B. {{host}}/{{date}} {{package}}.txt")
+            TemplateField(title: "File name", text: $output.filename,
+                          footnote: "“/” creates subfolders, e.g. {{host}}/{{date}} {{package}}.txt")
         }
         Section {
             Picker("Format", selection: $output.format) {
-                Text("Text, ein Link pro Zeile").tag("txt")
-                Text("JSON").tag("json")
-                Text("CSV").tag("csv")
-                Text("JDownloader-Crawljob").tag("crawljob")
-                Text("Eigene Vorlage").tag("custom")
+                Text("Text, one link per line").tag("txt")
+                Text(verbatim: "JSON").tag("json")
+                Text(verbatim: "CSV").tag("csv")
+                Text("JDownloader crawljob").tag("crawljob")
+                Text("Own template").tag("custom")
             }
             if output.format == "custom" {
                 CodeEditor(text: $output.template, minHeight: 100)
             }
-            Picker("Schreiben", selection: $output.mode) {
-                Text("Neue Datei pro Paket").tag("new")
-                Text("An eine Datei anhängen").tag("append")
+            Picker("Write", selection: $output.mode) {
+                Text("New file per package").tag("new")
+                Text("Append to one file").tag("append")
             }
-            Picker("Wenn die Datei existiert", selection: $output.onConflict) {
-                Text("Nummerieren").tag("number")
-                Text("Überschreiben").tag("overwrite")
-                Text("Überspringen").tag("skip")
+            Picker("If the file exists", selection: $output.onConflict) {
+                Text("Number").tag("number")
+                Text("Overwrite").tag("overwrite")
+                Text("Skip").tag("skip")
             }
             .disabled(output.mode == "append")
         } header: {
             HStack {
-                Text("Inhalt")
+                Text("Content")
                 Spacer()
                 TemplateHelpButton()
             }
@@ -162,11 +162,11 @@ struct FileSection: View {
 
     private var formatHelp: String {
         switch output.format {
-        case "json": "Ein JSON-Objekt pro Paket. Beim Anhängen als JSON Lines."
-        case "csv": "Spalten package, link, password, source, received. Kopfzeile nur am Dateianfang."
-        case "crawljob": "Für den Folder-Watch-Ordner von JDownloader. Passwort wird mit übergeben."
-        case "custom": "Die Vorlage wird einmal pro Paket geschrieben."
-        default: "Nur die Links, je einer pro Zeile."
+        case "json": String(localized: "One JSON object per package. JSON Lines when appending.")
+        case "csv": String(localized: "Columns package, link, password, source, received. Header only at the start of the file.")
+        case "crawljob": String(localized: "For JDownloader's folder watch directory. The password is included.")
+        case "custom": String(localized: "The template is written once per package.")
+        default: String(localized: "Only the links, one per line.")
         }
     }
 
@@ -175,7 +175,7 @@ struct FileSection: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
-        panel.prompt = "Auswählen"
+        panel.prompt = String(localized: "Choose")
         if panel.runModal() == .OK, let url = panel.url {
             let home = FileManager.default.homeDirectoryForCurrentUser.path
             output.directory = url.path.hasPrefix(home) ? "~" + url.path.dropFirst(home.count) : url.path
@@ -195,19 +195,19 @@ struct HttpSections: View {
         Section {
             HStack(spacing: 8) {
                 Picker("", selection: $output.method) {
-                    ForEach(methods, id: \.self) { Text($0).tag($0) }
+                    ForEach(methods, id: \.self) { Text(verbatim: $0).tag($0) }
                 }
                 .labelsHidden()
                 .fixedSize()
-                TextField("", text: $output.url, prompt: Text("https://example.org/hook?name={{package}}"))
+                TextField("", text: $output.url, prompt: Text(verbatim: "https://example.org/hook?name={{package}}"))
                     .labelsHidden()
                     .font(.body.monospaced())
             }
         } header: {
             HStack {
-                Text("Anfrage")
+                Text("Request")
                 Spacer()
-                Menu("Vorlage laden") {
+                Menu("Load preset") {
                     ForEach(store.meta.httpPresets) { preset in
                         Button(preset.label) { apply(preset.output) }
                     }
@@ -217,22 +217,22 @@ struct HttpSections: View {
                 TemplateHelpButton()
             }
         } footer: {
-            Text("Variablen in der URL werden automatisch URL-kodiert.").foregroundStyle(.secondary)
+            Text("Variables in the URL are URL-encoded automatically.").foregroundStyle(.secondary)
         }
 
-        Section("Header") {
-            KeyValueEditor(items: $output.headers, namePrompt: "Name", valuePrompt: "Wert", addLabel: "Header hinzufügen")
+        Section("Headers") {
+            KeyValueEditor(items: $output.headers, namePrompt: "Name", valuePrompt: "Value", addLabel: "Add header")
         }
 
-        Section("Authentifizierung") {
-            Picker("Art", selection: $output.auth.type) {
-                Text("Keine").tag("none")
-                Text("Basic").tag("basic")
-                Text("Bearer-Token").tag("bearer")
+        Section("Authentication") {
+            Picker("Type", selection: $output.auth.type) {
+                Text("None").tag("none")
+                Text(verbatim: "Basic").tag("basic")
+                Text("Bearer token").tag("bearer")
             }
             if output.auth.type == "basic" {
-                TextField("Benutzer", text: $output.auth.username)
-                SecureField("Passwort", text: $output.auth.password)
+                TextField("User", text: $output.auth.username)
+                SecureField("Password", text: $output.auth.password)
             } else if output.auth.type == "bearer" {
                 SecureField("Token", text: $output.auth.token)
             }
@@ -240,9 +240,9 @@ struct HttpSections: View {
 
         Section {
             Picker("Body", selection: $output.bodyType) {
-                Text("Kein").tag("none")
-                Text("JSON").tag("json")
-                Text("Formular").tag("form")
+                Text("None").tag("none")
+                Text(verbatim: "JSON").tag("json")
+                Text("Form").tag("form")
                 Text("Text").tag("text")
             }
             .pickerStyle(.segmented)
@@ -250,7 +250,7 @@ struct HttpSections: View {
             case "json", "text":
                 CodeEditor(text: $output.body, minHeight: 140)
             case "form":
-                KeyValueEditor(items: $output.form, namePrompt: "Feld", valuePrompt: "Wert", addLabel: "Feld hinzufügen")
+                KeyValueEditor(items: $output.form, namePrompt: "Field", valuePrompt: "Value", addLabel: "Add field")
             default:
                 EmptyView()
             }
@@ -258,15 +258,15 @@ struct HttpSections: View {
             Text("Body")
         } footer: {
             if output.bodyType == "json" {
-                Text("Variablen werden als JSON-String-Inhalt eingesetzt, z.B. \"{{package}}\". Mit {{links|json}} wird die Liste zum Array.")
+                Text("Variables are inserted as JSON string content, e.g. \"{{package}}\". {{links|json}} turns the list into an array.")
                     .foregroundStyle(.secondary)
             }
         }
 
-        Section("Optionen") {
-            Toggle("Ein Request pro Link ({{link}}, {{index}})", isOn: $output.perLink)
+        Section("Options") {
+            Toggle("One request per link ({{link}}, {{index}})", isOn: $output.perLink)
             Stepper("Timeout: \(output.timeoutSecs) s", value: $output.timeoutSecs, in: 1...600)
-            Toggle("Ungültige TLS-Zertifikate akzeptieren", isOn: $output.insecureTls)
+            Toggle("Accept invalid TLS certificates", isOn: $output.insecureTls)
         }
     }
 
@@ -290,22 +290,17 @@ struct CommandSection: View {
     var body: some View {
         Section {
             CodeEditor(text: $output.command, minHeight: 80)
-            LabeledContent("Arbeitsordner") {
+            LabeledContent("Working folder") {
                 TextField("", text: $output.workingDir, prompt: Text("optional"))
                     .labelsHidden()
             }
-            Toggle("Ein Aufruf pro Link", isOn: $output.perLink)
+            Toggle("One run per link", isOn: $output.perLink)
             Stepper("Timeout: \(output.timeoutSecs) s", value: $output.timeoutSecs, in: 1...3600)
         } header: {
-            Text("Befehl (/bin/sh)")
+            Text("Command (/bin/sh)")
         } footer: {
-            Text("""
-            Paketdaten kommen aus Umgebungsvariablen, nie direkt in den Befehl: \
-            $KLIKNLOAD_PACKAGE, $KLIKNLOAD_LINKS, $KLIKNLOAD_LINK, $KLIKNLOAD_INDEX, $KLIKNLOAD_COUNT, \
-            $KLIKNLOAD_PASSWORD, $KLIKNLOAD_SOURCE, $KLIKNLOAD_HOST, $KLIKNLOAD_DATE, $KLIKNLOAD_JSON. \
-            Die Links stehen außerdem zeilenweise auf stdin. Variablen immer in Anführungszeichen setzen.
-            """)
-            .foregroundStyle(.secondary)
+            Text("Package data comes in environment variables, never directly in the command: $KLIKNLOAD_PACKAGE, $KLIKNLOAD_LINKS, $KLIKNLOAD_LINK, $KLIKNLOAD_INDEX, $KLIKNLOAD_COUNT, $KLIKNLOAD_PASSWORD, $KLIKNLOAD_SOURCE, $KLIKNLOAD_HOST, $KLIKNLOAD_DATE, $KLIKNLOAD_JSON. The links are also on stdin, one per line. Always put variables in quotes.")
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -335,7 +330,7 @@ struct PreviewSection: View {
             }
             HStack {
                 if let testResult {
-                    Label(testResult.ok ? (testResult.text ?? "OK") : (testResult.error ?? "Fehler"),
+                    Label(testResult.ok ? (testResult.text ?? "OK") : (testResult.error ?? String(localized: "Error")),
                           systemImage: testResult.ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
                         .foregroundStyle(testResult.ok ? .green : .red)
                         .textSelection(.enabled)
@@ -347,7 +342,7 @@ struct PreviewSection: View {
                     .disabled(testing)
             }
         } header: {
-            Text("Vorschau mit Beispieldaten")
+            Text("Preview with sample data")
         } footer: {
             Text(testFootnote).foregroundStyle(.secondary)
         }
@@ -361,18 +356,18 @@ struct PreviewSection: View {
 
     private var testLabel: String {
         switch output.kind {
-        case .pyload: "Verbindung testen"
-        case .http: "Testanfrage senden"
-        case .file: "Testdatei schreiben"
-        case .command: "Testweise ausführen"
-        case .clipboard: "Beispiel kopieren"
+        case .pyload: String(localized: "Test connection")
+        case .http: String(localized: "Send test request")
+        case .file: String(localized: "Write test file")
+        case .command: String(localized: "Run test")
+        case .clipboard: String(localized: "Copy sample")
         }
     }
 
     private var testFootnote: String {
         switch output.kind {
-        case .pyload: "Der Test meldet sich nur an, es wird kein Paket angelegt."
-        default: "Der Test führt die Ausgabe wirklich aus, mit dem Beispielpaket oben."
+        case .pyload: String(localized: "The test only logs in, no package is added.")
+        default: String(localized: "The test really runs the output, with the sample package above.")
         }
     }
 

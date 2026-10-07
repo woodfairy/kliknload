@@ -15,12 +15,13 @@ fn content(cfg: &ClipboardOutput, package: &Package) -> Result<String> {
 
 pub fn deliver(cfg: &ClipboardOutput, package: &Package) -> Result<String> {
     platform::copy_to_clipboard(&content(cfg, package)?)?;
-    Ok(format!("{} Link(s) kopiert", package.links.len()))
+    Ok(t!(NotifyLinksCopied, count = package.links.len()))
 }
 
 pub fn preview(cfg: &ClipboardOutput, package: &Package) -> Result<String> {
     Ok(format!(
-        "In die Zwischenablage:\n\n{}",
+        "{}\n\n{}",
+        t!(OutClipboardPreview),
         content(cfg, package)?
     ))
 }

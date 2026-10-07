@@ -45,34 +45,39 @@ pub enum Escape {
 }
 
 /// Documented for the settings UI: (name, description).
-pub const VARIABLES: &[(&str, &str)] = &[
-    ("package", "Paketname"),
-    ("links", "Alle Links (Standard: eine Zeile pro Link)"),
-    ("link", "Aktueller Link (bei „ein Request pro Link“)"),
-    ("index", "Nummer des aktuellen Links, ab 1"),
-    ("count", "Anzahl Links"),
-    ("password", "Archiv-Passwort"),
-    ("source", "Quellseite"),
-    ("host", "Hostname der Quellseite"),
-    ("date", "Datum JJJJ-MM-TT"),
-    ("time", "Uhrzeit HH-MM-SS"),
-    ("datetime", "Zeitstempel ISO 8601"),
-    ("timestamp", "Unix-Zeit in Sekunden"),
-];
+/// Documented for the settings window: (name, description).
+pub fn variables() -> Vec<(&'static str, String)> {
+    vec![
+        ("package", t!(VarPackage)),
+        ("links", t!(VarLinks)),
+        ("link", t!(VarLink)),
+        ("index", t!(VarIndex)),
+        ("count", t!(VarCount)),
+        ("password", t!(VarPassword)),
+        ("source", t!(VarSource)),
+        ("host", t!(VarHost)),
+        ("date", t!(VarDate)),
+        ("time", t!(VarTime)),
+        ("datetime", t!(VarDatetime)),
+        ("timestamp", t!(VarTimestamp)),
+    ]
+}
 
-pub const FILTERS: &[(&str, &str)] = &[
-    ("json", "als JSON (Liste → Array, Text → \"String\")"),
-    ("url", "URL-kodiert"),
-    ("raw", "ohne automatisches Escaping"),
-    ("lines", "Liste zeilenweise verbinden"),
-    ("comma", "Liste mit \", \" verbinden"),
-    ("space", "Liste mit Leerzeichen verbinden"),
-    ("first", "erstes Element einer Liste"),
-    ("safe", "für Dateinamen bereinigen"),
-    ("lower", "Kleinbuchstaben"),
-    ("upper", "Großbuchstaben"),
-    ("trim", "Leerraum entfernen"),
-];
+pub fn filters() -> Vec<(&'static str, String)> {
+    vec![
+        ("json", t!(FilterJson)),
+        ("url", t!(FilterUrl)),
+        ("raw", t!(FilterRaw)),
+        ("lines", t!(FilterLines)),
+        ("comma", t!(FilterComma)),
+        ("space", t!(FilterSpace)),
+        ("first", t!(FilterFirst)),
+        ("safe", t!(FilterSafe)),
+        ("lower", t!(FilterLower)),
+        ("upper", t!(FilterUpper)),
+        ("trim", t!(FilterTrim)),
+    ]
+}
 
 static TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\{\{\s*([^}]*?)\s*\}\}").unwrap());
 static ENV: LazyLock<Regex> =
@@ -147,7 +152,7 @@ fn apply_filters(name: &str, value: &Value, filters: &[&str], mode: Escape) -> R
             ("lower", _) => Value::Str(v.joined("\n").to_lowercase()),
             ("upper", _) => Value::Str(v.joined("\n").to_uppercase()),
             ("trim", _) => Value::Str(v.joined("\n").trim().to_string()),
-            (other, _) => bail!("unbekannter Filter „{other}“ bei {{{{{name}}}}}"),
+            (other, _) => bail!("{}", t!(TplUnknownFilter, filter = other, name = name)),
         };
     }
     let text = v.joined("\n");
@@ -167,7 +172,7 @@ pub fn render(template: &str, vars: &Vars, mode: Escape) -> Result<String> {
         let name = parts.next().unwrap_or("");
         let filters: Vec<&str> = parts.filter(|p| !p.is_empty()).collect();
         let Some(value) = vars.get(name) else {
-            bail!("unbekannte Variable {{{{{name}}}}}");
+            bail!("{}", t!(TplUnknownVariable, name = name));
         };
         out.push_str(&apply_filters(name, value, &filters, mode)?);
     }
@@ -198,7 +203,7 @@ pub fn expand_path(s: &str) -> std::path::PathBuf {
 
 /// Validates that a rendered JSON body is valid JSON.
 pub fn check_json(body: &str) -> Result<Json> {
-    serde_json::from_str(body).map_err(|e| anyhow::anyhow!("Body ist kein gültiges JSON: {e}"))
+    serde_json::from_str(body).map_err(|e| anyhow::anyhow!("{}", t!(TplInvalidJson, error = e)))
 }
 
 #[cfg(test)]

@@ -51,10 +51,10 @@ enum OutputType: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .pyload: "pyLoad"
-        case .clipboard: "Zwischenablage"
-        case .file: "Datei"
-        case .http: "HTTP-Request"
-        case .command: "Befehl"
+        case .clipboard: String(localized: "Clipboard")
+        case .file: String(localized: "File")
+        case .http: String(localized: "HTTP request")
+        case .command: String(localized: "Command")
         }
     }
 
@@ -70,11 +70,11 @@ enum OutputType: String, CaseIterable, Identifiable {
 
     var summary: String {
         switch self {
-        case .pyload: "Pakete inklusive Passwort an eine pyLoad-Instanz senden"
-        case .clipboard: "Links in die Zwischenablage kopieren"
-        case .file: "Links als Textdatei, JSON, CSV oder JDownloader-Crawljob speichern"
-        case .http: "Beliebigen HTTP-Request bauen, z.B. Webhook, aria2, ntfy, Discord"
-        case .command: "Ein Shell-Kommando ausführen, Daten kommen per Umgebungsvariablen"
+        case .pyload: String(localized: "Send packages including the password to a pyLoad instance")
+        case .clipboard: String(localized: "Copy links to the clipboard")
+        case .file: String(localized: "Save links as text, JSON, CSV or JDownloader crawljob")
+        case .http: String(localized: "Build any HTTP request, e.g. webhook, aria2, ntfy, Discord")
+        case .command: String(localized: "Run a shell command, data comes in environment variables")
         }
     }
 }
@@ -215,18 +215,20 @@ struct OutputConfig: Codable, Identifiable, Hashable {
 }
 
 struct AppConfig: Codable, Equatable {
+    var language: String = "en"
     var listen: String = "127.0.0.1:9666"
     var notifications: String = "all"
     var clipboardFallback: Bool = true
     var dedupeLinks: Bool = true
     var outputs: [OutputConfig] = []
 
-    enum CodingKeys: String, CodingKey { case listen, notifications, clipboardFallback, dedupeLinks, outputs }
+    enum CodingKeys: String, CodingKey { case language, listen, notifications, clipboardFallback, dedupeLinks, outputs }
 
     init() {}
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        language = try c.decodeIfPresent(String.self, forKey: .language) ?? "en"
         listen = try c.decodeIfPresent(String.self, forKey: .listen) ?? "127.0.0.1:9666"
         notifications = try c.decodeIfPresent(String.self, forKey: .notifications) ?? "all"
         clipboardFallback = try c.decodeIfPresent(Bool.self, forKey: .clipboardFallback) ?? true

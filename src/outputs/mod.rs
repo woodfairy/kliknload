@@ -41,13 +41,13 @@ impl Package {
     /// Example data for previews and tests in the settings window.
     pub fn sample() -> Self {
         Self::new(
-            "Beispiel.Paket.2026".into(),
+            "Example.Package.2026".into(),
             vec![
-                "https://hoster.example/file/abc123/Beispiel.part1.rar".into(),
-                "https://hoster.example/file/def456/Beispiel.part2.rar".into(),
+                "https://hoster.example/file/abc123/Example.part1.rar".into(),
+                "https://hoster.example/file/def456/Example.part2.rar".into(),
             ],
-            Some("geheim".into()),
-            Some("https://release.example/beispiel-paket".into()),
+            Some("secret".into()),
+            Some("https://release.example/example-package".into()),
         )
     }
 
@@ -125,7 +125,7 @@ pub enum Outcome {
 pub async fn deliver(output: &Output, package: &Package) -> Result<Outcome> {
     let p = filtered(output, package)?;
     if p.links.is_empty() {
-        return Ok(Outcome::Skipped("keine passenden Links".into()));
+        return Ok(Outcome::Skipped(t!(OutNoMatchingLinks)));
     }
     let msg = match &output.kind {
         OutputKind::Pyload(cfg) => pyload::deliver(cfg, &p).await?,
@@ -141,7 +141,7 @@ pub async fn deliver(output: &Output, package: &Package) -> Result<Outcome> {
 pub fn preview(output: &Output, package: &Package) -> Result<String> {
     let p = filtered(output, package)?;
     if p.links.is_empty() {
-        bail!("Alle Links werden von den Filtern dieser Ausgabe aussortiert");
+        bail!("{}", t!(OutAllFiltered));
     }
     match &output.kind {
         OutputKind::Pyload(cfg) => pyload::preview(cfg, &p),
@@ -158,7 +158,7 @@ pub async fn test(output: &Output) -> Result<String> {
     match &output.kind {
         OutputKind::Pyload(cfg) => {
             let version = pyload::test_connection(cfg).await?;
-            Ok(format!("Login erfolgreich, pyLoad {version}"))
+            Ok(t!(PyloadTestOk, version = version))
         }
         _ => match deliver(output, &Package::sample()).await? {
             Outcome::Done(m) | Outcome::Skipped(m) => Ok(m),

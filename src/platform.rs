@@ -32,7 +32,7 @@ pub fn copy_to_clipboard(text: &str) -> Result<()> {
 
 #[cfg(all(not(feature = "gui"), not(target_os = "macos")))]
 pub fn copy_to_clipboard(_text: &str) -> Result<()> {
-    anyhow::bail!("Zwischenablage ist in dieser Version (headless/Docker) nicht verfügbar")
+    anyhow::bail!("{}", t!(OutClipboardUnavailable))
 }
 
 pub use crate::notify::notify;

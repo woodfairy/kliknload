@@ -7,6 +7,8 @@
     allow(clippy::field_reassign_with_default, clippy::result_large_err)
 )]
 
+#[macro_use]
+mod i18n;
 mod app;
 mod cli;
 mod cnl;
@@ -149,22 +151,20 @@ fn run_command(
         ["autostart", "off"] => cli::autostart(false),
         ["notify-test", rest @ ..] => {
             if notify::permission() == notify::Permission::NotDetermined {
-                eprintln!("Bitte die Mitteilungs-Abfrage von macOS beantworten …");
+                eprintln!("{}", t!(NotifyPermissionPrompt));
             }
             match notify::wait_for_decision(std::time::Duration::from_secs(120)) {
                 notify::Permission::Denied => {
                     notify::open_settings();
-                    bail!(
-                        "Mitteilungen sind für kliknload ausgeschaltet (Systemeinstellungen → Mitteilungen)"
-                    );
+                    bail!("{}", t!(NotifyPermissionDenied));
                 }
                 notify::Permission::NotDetermined => {
-                    bail!("Mitteilungs-Abfrage wurde nicht beantwortet")
+                    bail!("{}", t!(NotifyPermissionUnanswered))
                 }
                 _ => {}
             }
             let message = if rest.is_empty() {
-                "Benachrichtigungen funktionieren".to_string()
+                t!(NotifyTest)
             } else {
                 rest.join(" ")
             };
@@ -206,6 +206,10 @@ fn main() -> Result<()> {
             .with_writer(std::io::stderr)
             .with_env_filter(EnvFilter::new("warn"))
             .init();
+        // Messages for the settings window follow the configured language.
+        if let Ok(cfg) = config::Config::load(&config_path) {
+            i18n::set(i18n::Lang::from_setting(&cfg.language));
+        }
         return run_command(&args, &config_path, &rt);
     }
 
@@ -223,10 +227,14 @@ fn main() -> Result<()> {
         Ok(c) => c,
         Err(e) => {
             error!("{e:#}");
-            platform::notify("kliknload", &format!("Konfiguration fehlerhaft: {e:#}"));
+            platform::notify(
+                "kliknload",
+                &t!(NotifyConfigInvalid, error = format!("{e:#}")),
+            );
             config::Config::default()
         }
     };
+    i18n::set(i18n::Lang::from_setting(&cfg.language));
     for problem in cfg.validate() {
         warn!("config: {problem}");
     }

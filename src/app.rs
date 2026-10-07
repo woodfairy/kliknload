@@ -89,6 +89,7 @@ impl App {
             warn!("config: {problem}");
         }
         let listen_changed = cfg.listen != self.config.read().unwrap().listen;
+        crate::i18n::set(crate::i18n::Lang::from_setting(&cfg.language));
         *self.config.write().unwrap() = cfg;
         if listen_changed {
             warn!("listen address changed, restart kliknload to apply it");
@@ -117,7 +118,10 @@ impl App {
                 }
                 Err(e) => {
                     error!("config reload failed: {e:#}");
-                    platform::notify("kliknload", &format!("Konfiguration fehlerhaft: {e:#}"));
+                    platform::notify(
+                        "kliknload",
+                        &t!(NotifyConfigInvalid, error = format!("{e:#}")),
+                    );
                 }
             }
         }
@@ -169,7 +173,7 @@ impl App {
                     clipboard_done |= *is_clipboard;
                     info!("{name}: {msg}");
                 }
-                Ok(Outcome::Skipped(msg)) => info!("{name}: übersprungen ({msg})"),
+                Ok(Outcome::Skipped(msg)) => info!("{name}: skipped ({msg})"),
                 Err(e) => error!("{name}: {e}"),
             }
         }
@@ -187,14 +191,14 @@ impl App {
             .filter_map(|(_, name, _, r)| r.as_ref().err().map(|e| format!("{name}: {e}")))
             .collect();
         let hint = if fallback {
-            "\nLinks in Zwischenablage kopiert"
+            format!("\n{}", t!(NotifyFallbackHint))
         } else {
-            ""
+            String::new()
         };
         if !failures.is_empty() {
             if cfg.notifications != Notifications::Off {
                 platform::notify(
-                    "kliknload – Fehler",
+                    &t!(NotifyErrorTitle),
                     &format!("{}{hint}", failures.join("\n")),
                 );
             }
@@ -205,11 +209,14 @@ impl App {
                 .map(|(_, name, _, _)| name.as_str())
                 .collect();
             let message = if done.is_empty() {
-                format!("Keine Ausgabe aktiv{hint}")
+                format!("{}{hint}", t!(NotifyNoOutput))
             } else {
-                format!("→ {}{hint}", done.join(", "))
+                format!("{}{hint}", t!(NotifyDelivered, outputs = done.join(", ")))
             };
-            platform::notify(&format!("{count} Link(s): {}", package.name), &message);
+            platform::notify(
+                &t!(NotifyPackage, count = count, package = package.name),
+                &message,
+            );
         }
 
         let record = Record {

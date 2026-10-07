@@ -12,8 +12,8 @@ struct GeneralView: View {
                         .resizable()
                         .frame(width: 56, height: 56)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("kliknload").font(.title2.weight(.semibold))
-                        Text("Click'n'Load-Empfänger · Version \(store.version)")
+                        Text(verbatim: "kliknload").font(.title2.weight(.semibold))
+                        Text("Click'n'Load receiver · version \(store.version)")
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -21,25 +21,34 @@ struct GeneralView: View {
             }
 
             Section {
-                TextField("Listen-Adresse", text: $store.config.listen)
-                    .font(.body.monospaced())
-            } header: {
-                Text("Click'n'Load")
+                Picker("Language", selection: $store.config.language) {
+                    Text(verbatim: "English").tag("en")
+                    Text(verbatim: "Deutsch").tag("de")
+                    Text("System language").tag("system")
+                }
             } footer: {
-                Text("Browser senden Click'n'Load immer an 127.0.0.1:9666. Eine Änderung wird nach einem Neustart von kliknload wirksam.")
+                Text("Applies to the menu bar, notifications and this window.")
                     .foregroundStyle(.secondary)
             }
 
-            Section("Verhalten") {
-                Picker("Mitteilungen", selection: $store.config.notifications) {
-                    Text("Alle").tag("all")
-                    Text("Nur Fehler").tag("errors")
-                    Text("Aus").tag("off")
+            Section {
+                TextField("Listen address", text: $store.config.listen)
+                    .font(.body.monospaced())
+            } header: {
+                Text(verbatim: "Click'n'Load")
+            } footer: {
+                Text("Browsers always send Click'n'Load to 127.0.0.1:9666. A change takes effect after restarting kliknload.")
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Behavior") {
+                Picker("Notifications", selection: $store.config.notifications) {
+                    Text("All").tag("all")
+                    Text("Errors only").tag("errors")
+                    Text("Off").tag("off")
                 }
-                Toggle(isOn: $store.config.clipboardFallback) {
-                    Text("Links in die Zwischenablage, wenn keine Ausgabe klappt")
-                }
-                Toggle("Doppelte Links entfernen", isOn: $store.config.dedupeLinks)
+                Toggle("Copy links to the clipboard if no output succeeds", isOn: $store.config.clipboardFallback)
+                Toggle("Remove duplicate links", isOn: $store.config.dedupeLinks)
             }
 
             Section {
@@ -48,18 +57,18 @@ struct GeneralView: View {
                         .foregroundStyle(notificationLabel.2)
                 }
                 HStack {
-                    Button("Systemeinstellungen öffnen") { store.openNotificationSettings() }
-                    Button("Test senden") { Task { await store.sendTestNotification() } }
+                    Button("Open System Settings") { store.openNotificationSettings() }
+                    Button("Send test") { Task { await store.sendTestNotification() } }
                     if let result = store.notificationTestResult {
                         Text(result).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
             } header: {
-                Text("Mitteilungen")
+                Text("Notifications")
             } footer: {
                 if store.notificationStatus == "denied" {
-                    Text("macOS fragt nicht erneut nach. Mitteilungen für kliknload in den Systemeinstellungen erlauben.")
+                    Text("macOS does not ask again. Allow notifications for kliknload in System Settings.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -68,14 +77,14 @@ struct GeneralView: View {
             }
 
             Section("System") {
-                Toggle("Bei der Anmeldung starten", isOn: Binding(
+                Toggle("Start at login", isOn: Binding(
                     get: { store.autostart },
                     set: { on in Task { await store.setAutostart(on) } }
                 ))
             }
 
             Section {
-                LabeledContent("Datei") {
+                LabeledContent("File") {
                     Text(store.configPath)
                         .font(.callout.monospaced())
                         .textSelection(.enabled)
@@ -83,20 +92,20 @@ struct GeneralView: View {
                         .truncationMode(.middle)
                 }
                 HStack {
-                    Button("Im Finder zeigen") { store.revealConfig() }
-                    Button("Log öffnen") { store.openLog() }
+                    Button("Show in Finder") { store.revealConfig() }
+                    Button("Open log") { store.openLog() }
                     Spacer()
-                    Button("Neu laden") { Task { await store.load() } }
+                    Button("Reload") { Task { await store.load() } }
                 }
             } header: {
-                Text("Konfiguration")
+                Text("Configuration")
             } footer: {
-                Text("Alle Einstellungen stehen in dieser JSON-Datei und können auch direkt dort bearbeitet werden. kliknload übernimmt Änderungen automatisch. ${NAME} in Werten wird durch die Umgebungsvariable NAME ersetzt.")
+                Text("All settings live in this JSON file and can be edited there too. kliknload picks up changes automatically. ${NAME} in values is replaced by the environment variable NAME.")
                     .foregroundStyle(.secondary)
             }
 
             if !store.problems.isEmpty {
-                Section("Hinweise") {
+                Section("Problems") {
                     ForEach(store.problems, id: \.self) { p in
                         Label(p, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(.orange)
@@ -105,15 +114,15 @@ struct GeneralView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle("Allgemein")
+        .navigationTitle("General")
     }
 
     private var notificationLabel: (String, String, Color) {
         switch store.notificationStatus {
-        case "granted": ("Erlaubt", "checkmark.circle.fill", .green)
-        case "denied": ("In den Systemeinstellungen ausgeschaltet", "bell.slash.fill", .orange)
-        case "notDetermined": ("Noch nicht gefragt – „Test senden“ fragt nach", "questionmark.circle", .secondary)
-        default: ("Unbekannt", "questionmark.circle", .secondary)
+        case "granted": (String(localized: "Allowed"), "checkmark.circle.fill", .green)
+        case "denied": (String(localized: "Turned off in System Settings"), "bell.slash.fill", .orange)
+        case "notDetermined": (String(localized: "Not asked yet – “Send test” asks"), "questionmark.circle", .secondary)
+        default: (String(localized: "Unknown"), "questionmark.circle", .secondary)
         }
     }
 }

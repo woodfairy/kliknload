@@ -54,9 +54,9 @@ struct CodeEditor: NSViewRepresentable {
 
 /// Single-line template input with the variables help next to it.
 struct TemplateField: View {
-    let title: String
+    let title: LocalizedStringKey
     @Binding var text: String
-    var footnote: String? = nil
+    var footnote: LocalizedStringKey? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -86,18 +86,18 @@ struct TemplateHelpButton: View {
             Image(systemName: "curlybraces.square")
         }
         .buttonStyle(.borderless)
-        .help("Variablen und Filter")
+        .help("Variables and filters")
         .popover(isPresented: $shown, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Variablen").font(.headline)
+                Text("Variables").font(.headline)
                 grid(store.meta.variables) { "{{\($0)}}" }
                 Divider()
-                Text("Filter").font(.headline)
+                Text("Filters").font(.headline)
                 grid(store.meta.filters) { "|\($0)" }
-                Text("Beispiel: {{links|json}}, {{package|safe}}. Klick kopiert.")
+                Text("Example: {{links|json}}, {{package|safe}}. Click to copy.")
                     .font(.caption).foregroundStyle(.secondary)
                 if let copied {
-                    Text("Kopiert: \(copied)").font(.caption).foregroundStyle(.green)
+                    Text("Copied: \(copied)").font(.caption).foregroundStyle(.green)
                 }
             }
             .padding(14)
@@ -109,10 +109,12 @@ struct TemplateHelpButton: View {
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
             ForEach(items, id: \.name) { item in
                 GridRow {
-                    Button(format(item.name)) {
+                    Button {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(format(item.name), forType: .string)
                         copied = format(item.name)
+                    } label: {
+                        Text(verbatim: format(item.name))
                     }
                     .buttonStyle(.link)
                     .font(.callout.monospaced())
@@ -126,9 +128,9 @@ struct TemplateHelpButton: View {
 /// Editable list of name/value pairs (headers, form fields).
 struct KeyValueEditor: View {
     @Binding var items: [KeyValue]
-    let namePrompt: String
-    let valuePrompt: String
-    let addLabel: String
+    let namePrompt: LocalizedStringKey
+    let valuePrompt: LocalizedStringKey
+    let addLabel: LocalizedStringKey
 
     var body: some View {
         ForEach($items) { $item in

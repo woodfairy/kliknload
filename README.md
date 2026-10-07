@@ -22,6 +22,7 @@ packages and passes them to one or more **outputs**. It is a drop-in replacement
 - **Native desktop notifications** on macOS (Notification Center), Linux/BSD (freedesktop
   notifications over D-Bus) and Windows (toasts), implemented without extra libraries
 - **Per-output link filters** (include/exclude regex), live preview and test button
+- **English and German** (menu bar, notifications, settings window), English by default
 - **Everything is in one JSON file**, so the GUI is optional; changes are picked up live
 - **Headless mode** for any system (`--headless`), also as a Docker image; secrets via environment variables
 
@@ -63,6 +64,7 @@ can stay out of the file.
 
 ```jsonc
 {
+  "language": "en",                    // en | de | system
   "listen": "127.0.0.1:9666",          // $KLIKNLOAD_LISTEN overrides it (Docker: 0.0.0.0:9666)
   "notifications": "all",              // all | errors | off
   "clipboardFallback": true,           // copy links if no output succeeded
@@ -132,6 +134,11 @@ scripts/bundle.sh                            # dist/kliknload.app
 
 `src/` is the Rust core, `settings/` the SwiftUI settings window. The window has no logic of
 its own: it calls the `config` and `output` subcommands of the core.
+
+Translations: Rust texts live in the compile-time checked catalog in `src/i18n.rs` (a missing
+language does not compile). The settings window uses `settings/Resources/*.lproj`; after
+changing texts there run `scripts/localization.py --write` and add the German entries
+(CI fails on missing or unused keys).
 
 Logs: `~/Library/Logs/kliknload.log` (menu bar app) or stderr.
 

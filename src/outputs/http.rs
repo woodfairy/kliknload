@@ -16,9 +16,9 @@ struct Prepared {
 
 fn prepare(cfg: &HttpOutput, vars: &Vars) -> Result<Prepared> {
     let method = reqwest::Method::from_bytes(cfg.method.trim().to_uppercase().as_bytes())
-        .with_context(|| format!("ungültige HTTP-Methode „{}“", cfg.method))?;
+        .with_context(|| t!(HttpInvalidMethod, method = cfg.method))?;
     let url = render(&expand_env(cfg.url.trim()), vars, Escape::Url)?;
-    reqwest::Url::parse(&url).with_context(|| format!("ungültige URL „{url}“"))?;
+    reqwest::Url::parse(&url).with_context(|| t!(HttpInvalidUrl, url = url))?;
 
     let mut headers = Vec::new();
     for KeyValue { name, value } in &cfg.headers {
@@ -136,7 +136,7 @@ pub async fn deliver(cfg: &HttpOutput, package: &Package) -> Result<String> {
         let text = resp.text().await.unwrap_or_default();
         if !status.is_success() {
             let which = if prepared.len() > 1 {
-                format!(" (Request {}/{})", i + 1, prepared.len())
+                t!(HttpRequestOf, n = i + 1, total = prepared.len())
             } else {
                 String::new()
             };
@@ -152,7 +152,7 @@ pub async fn deliver(cfg: &HttpOutput, package: &Package) -> Result<String> {
         );
     }
     Ok(if prepared.len() > 1 {
-        format!("{} Requests gesendet, zuletzt {last}", prepared.len())
+        t!(HttpSentMany, count = prepared.len(), last = last)
     } else {
         last
     })
@@ -162,7 +162,10 @@ pub fn preview(cfg: &HttpOutput, package: &Package) -> Result<String> {
     let prepared = requests(cfg, package)?;
     let mut out = String::new();
     if prepared.len() > 1 {
-        out.push_str(&format!("{} Requests (einer pro Link)\n\n", prepared.len()));
+        out.push_str(&format!(
+            "{}\n\n",
+            t!(HttpPreviewPerLink, count = prepared.len())
+        ));
     }
     for p in prepared.iter().take(3) {
         out.push_str(&format!("{} {}\n", p.method, p.url));
@@ -187,13 +190,16 @@ pub fn preview(cfg: &HttpOutput, package: &Package) -> Result<String> {
         out.push('\n');
     }
     if prepared.len() > 3 {
-        out.push_str(&format!("… und {} weitere\n", prepared.len() - 3));
+        out.push_str(&format!(
+            "{}\n",
+            t!(HttpPreviewMore, count = prepared.len() - 3)
+        ));
     }
     Ok(out.trim_end().to_string())
 }
 
 /// Ready-made request templates for the settings window: (id, label, config).
-pub fn presets() -> Vec<(&'static str, &'static str, HttpOutput)> {
+pub fn presets() -> Vec<(&'static str, String, HttpOutput)> {
     let json = |url: &str, body: &str, per_link: bool| HttpOutput {
         method: "POST".into(),
         url: url.into(),
@@ -205,7 +211,7 @@ pub fn presets() -> Vec<(&'static str, &'static str, HttpOutput)> {
     vec![
         (
             "webhook",
-            "JSON-Webhook",
+            t!(PresetWebhook),
             HttpOutput {
                 url: "https://example.org/webhook".into(),
                 ..HttpOutput::default()
@@ -213,7 +219,7 @@ pub fn presets() -> Vec<(&'static str, &'static str, HttpOutput)> {
         ),
         (
             "aria2",
-            "aria2 (JSON-RPC)",
+            t!(PresetAria2),
             json(
                 "http://localhost:6800/jsonrpc",
                 "{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"kliknload\",\n  \"method\": \"aria2.addUri\",\n  \"params\": [\"token:${ARIA2_SECRET}\", [{{link|json}}], {}]\n}",
@@ -222,7 +228,7 @@ pub fn presets() -> Vec<(&'static str, &'static str, HttpOutput)> {
         ),
         (
             "discord",
-            "Discord-Webhook",
+            t!(PresetDiscord),
             json(
                 "https://discord.com/api/webhooks/ID/TOKEN",
                 "{\n  \"content\": \"**{{package}}** ({{count}} Links)\\n{{links}}\"\n}",
@@ -231,7 +237,7 @@ pub fn presets() -> Vec<(&'static str, &'static str, HttpOutput)> {
         ),
         (
             "slack",
-            "Slack-Webhook",
+            t!(PresetSlack),
             json(
                 "https://hooks.slack.com/services/XXX/YYY/ZZZ",
                 "{\n  \"text\": \"*{{package}}* ({{count}} Links)\\n{{links}}\"\n}",
@@ -240,7 +246,7 @@ pub fn presets() -> Vec<(&'static str, &'static str, HttpOutput)> {
         ),
         (
             "gotify",
-            "Gotify",
+            t!(PresetGotify),
             json(
                 "https://gotify.example.org/message?token=${GOTIFY_TOKEN}",
                 "{\n  \"title\": \"kliknload: {{package}}\",\n  \"message\": \"{{links}}\",\n  \"priority\": 5\n}",
@@ -249,7 +255,7 @@ pub fn presets() -> Vec<(&'static str, &'static str, HttpOutput)> {
         ),
         (
             "ntfy",
-            "ntfy",
+            t!(PresetNtfy),
             HttpOutput {
                 method: "POST".into(),
                 url: "https://ntfy.sh/mein-topic".into(),

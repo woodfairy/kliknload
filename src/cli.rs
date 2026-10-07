@@ -31,8 +31,8 @@ fn meta() -> Value {
         .map(|(id, label, cfg)| json!({ "id": id, "label": label, "output": cfg }))
         .collect();
     json!({
-        "variables": template::VARIABLES.iter().map(|(n, d)| json!({"name": n, "description": d})).collect::<Vec<_>>(),
-        "filters": template::FILTERS.iter().map(|(n, d)| json!({"name": n, "description": d})).collect::<Vec<_>>(),
+        "variables": template::variables().iter().map(|(n, d)| json!({"name": n, "description": d})).collect::<Vec<_>>(),
+        "filters": template::filters().iter().map(|(n, d)| json!({"name": n, "description": d})).collect::<Vec<_>>(),
         "httpPresets": presets,
         "outputDefaults": OutputKind::all_defaults()
             .into_iter()
@@ -61,6 +61,7 @@ pub fn config_get(path: &Path) -> Result<()> {
 
 pub fn config_set(path: &Path) -> Result<()> {
     let mut config = Config::from_value(read_stdin_json()?)?;
+    crate::i18n::set(crate::i18n::Lang::from_setting(&config.language));
     // Keep unknown top-level keys of the existing file.
     if let Ok(existing) = Config::load(path) {
         for (k, v) in existing.extra {

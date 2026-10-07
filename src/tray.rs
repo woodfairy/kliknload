@@ -43,21 +43,22 @@ fn short(s: &str, max: usize) -> String {
 fn output_label(o: &Output) -> String {
     let custom = o.name.trim() != o.kind.default_name() && !o.name.trim().is_empty();
     match &o.kind {
-        OutputKind::Pyload(_) => format!("An {} senden", o.display_name()),
-        OutputKind::Clipboard(_) => "In Zwischenablage kopieren".into(),
-        OutputKind::File(_) if custom => format!("In Datei speichern ({})", o.name.trim()),
-        OutputKind::File(_) => "In Datei speichern".into(),
-        OutputKind::Http(_) => format!("{} (HTTP)", o.display_name()),
-        OutputKind::Command(_) => format!("{} (Befehl)", o.display_name()),
+        OutputKind::Pyload(_) => t!(MenuSendTo, name = o.display_name()),
+        OutputKind::Clipboard(_) => t!(MenuCopyToClipboard),
+        OutputKind::File(_) if custom => t!(MenuSaveToFileNamed, name = o.name.trim()),
+        OutputKind::File(_) => t!(MenuSaveToFile),
+        OutputKind::Http(_) => t!(MenuHttpOutput, name = o.display_name()),
+        OutputKind::Command(_) => t!(MenuCommandOutput, name = o.display_name()),
     }
 }
 
 fn record_label(rec: &Record) -> String {
     let mark = if rec.ok() { "✓" } else { "⚠" };
-    format!(
-        "{mark} {} ({} Links)",
-        short(&rec.package.name, 45),
-        rec.package.links.len()
+    t!(
+        MenuRecentEntry,
+        mark = mark,
+        name = short(&rec.package.name, 45),
+        count = rec.package.links.len()
     )
 }
 
@@ -66,7 +67,7 @@ fn record_details(rec: &Record) -> Vec<String> {
         .iter()
         .map(|(name, r)| match r {
             Ok(Outcome::Done(m)) => format!("{name}: {m}"),
-            Ok(Outcome::Skipped(m)) => format!("{name}: übersprungen ({m})"),
+            Ok(Outcome::Skipped(m)) => t!(OutSkipped, name = name, reason = m),
             Err(e) => format!("{name}: {e}"),
         })
         .collect()
@@ -74,8 +75,8 @@ fn record_details(rec: &Record) -> Vec<String> {
 
 fn status_label(status: &ServerStatus) -> String {
     match status {
-        ServerStatus::Starting => "Startet…".to_string(),
-        ServerStatus::Listening(addr) => format!("● Bereit auf {addr}"),
+        ServerStatus::Starting => t!(MenuStarting),
+        ServerStatus::Listening(addr) => t!(MenuListening, addr = addr),
         ServerStatus::Failed(msg) => format!("⚠ {}", short(msg, 60)),
     }
 }
@@ -92,7 +93,7 @@ fn build_menu(
     if notifications_denied {
         menu.append(&MenuItem::with_id(
             id::NOTIFY_SETTINGS,
-            "⚠ Mitteilungen sind aus – aktivieren…",
+            t!(MenuNotificationsOff),
             true,
             None,
         ))?;
@@ -114,13 +115,13 @@ fn build_menu(
     if cfg.pyload_url().is_some() {
         menu.append(&MenuItem::with_id(
             id::OPEN_PYLOAD,
-            "pyLoad öffnen",
+            t!(MenuOpenPyload),
             true,
             None,
         ))?;
     }
     let history = app.history.lock().unwrap();
-    let recent = Submenu::new("Letzte Pakete", !history.is_empty());
+    let recent = Submenu::new(t!(MenuRecent), !history.is_empty());
     for (i, rec) in history.iter().enumerate() {
         recent.append(&MenuItem::with_id(
             format!("{}{i}", id::HISTORY_PREFIX),
@@ -140,7 +141,7 @@ fn build_menu(
     }
     if !history.is_empty() {
         recent.append(&PredefinedMenuItem::separator())?;
-        recent.append(&MenuItem::new("Klick kopiert die Links", false, None))?;
+        recent.append(&MenuItem::new(t!(MenuRecentHint), false, None))?;
     }
     menu.append(&recent)?;
     menu.append(&PredefinedMenuItem::separator())?;
@@ -148,18 +149,18 @@ fn build_menu(
     let settings_key = Accelerator::new(Modifiers::META, Code::Comma);
     menu.append(&MenuItem::with_id(
         id::SETTINGS,
-        "Einstellungen…",
+        t!(MenuSettings),
         true,
         Some(settings_key),
     ))?;
-    menu.append(&MenuItem::with_id(id::OPEN_LOG, "Log anzeigen", true, None))?;
-    menu.append(&PredefinedMenuItem::separator())?;
     menu.append(&MenuItem::with_id(
-        id::QUIT,
-        "kliknload beenden",
+        id::OPEN_LOG,
+        t!(MenuShowLog),
         true,
         None,
     ))?;
+    menu.append(&PredefinedMenuItem::separator())?;
+    menu.append(&MenuItem::with_id(id::QUIT, t!(MenuQuit), true, None))?;
     Ok(menu)
 }
 
@@ -187,6 +188,9 @@ fn open_settings(app: &App) {
                 .arg(&app.config_path)
                 .arg("--kliknload")
                 .arg(&exe)
+                // The window uses native .lproj localization; pick kliknload's language.
+                .arg("-AppleLanguages")
+                .arg(format!("({})", crate::i18n::current().code()))
                 .spawn();
             if let Err(e) = result {
                 error!("could not open settings: {e}");
@@ -224,7 +228,7 @@ fn handle_menu(app: &Arc<App>, event: &MenuEvent, control_flow: &mut ControlFlow
                 });
                 if let Err(e) = result {
                     error!("saving config failed: {e:#}");
-                    platform::notify("kliknload", &format!("Speichern fehlgeschlagen: {e:#}"));
+                    platform::notify("kliknload", &t!(NotifySaveFailed, error = format!("{e:#}")));
                 }
             } else if let Some(idx) = other
                 .strip_prefix(id::HISTORY_PREFIX)
@@ -240,7 +244,7 @@ fn handle_menu(app: &Arc<App>, event: &MenuEvent, control_flow: &mut ControlFlow
                     match platform::copy_to_clipboard(&links.join("\n")) {
                         Ok(()) => platform::notify(
                             "kliknload",
-                            &format!("{} Link(s) kopiert", links.len()),
+                            &t!(NotifyLinksCopied, count = links.len()),
                         ),
                         Err(e) => error!("copy failed: {e:#}"),
                     }

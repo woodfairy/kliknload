@@ -19,12 +19,12 @@ fn target_path(cfg: &FileOutput, package: &Package) -> Result<PathBuf> {
     {
         let name = render(segment, &vars, Escape::Filename)?;
         if name == ".." || name == "." {
-            bail!("ungültiger Dateiname „{name}“");
+            bail!("{}", t!(FileInvalidName, name = name));
         }
         path.push(name);
     }
     if path == expand_path(cfg.directory.trim()) {
-        bail!("Dateiname ist leer");
+        bail!("{}", t!(FileEmptyName));
     }
     Ok(path)
 }
@@ -121,8 +121,7 @@ fn numbered(path: &Path) -> PathBuf {
 pub async fn deliver(cfg: &FileOutput, package: &Package) -> Result<String> {
     let mut path = target_path(cfg, package)?;
     if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)
-            .with_context(|| format!("Ordner {} anlegen", dir.display()))?;
+        std::fs::create_dir_all(dir).with_context(|| t!(FileCreateDir, path = dir.display()))?;
     }
 
     if cfg.mode == FileMode::Append {
@@ -134,42 +133,39 @@ pub async fn deliver(cfg: &FileOutput, package: &Package) -> Result<String> {
             .create(true)
             .append(true)
             .open(&path)
-            .with_context(|| format!("{} öffnen", path.display()))?;
+            .with_context(|| t!(FileOpen, path = path.display()))?;
         f.write_all(text.as_bytes())?;
-        return Ok(format!("an {} angehängt", path.display()));
+        return Ok(t!(FileAppended, path = path.display()));
     }
 
     if path.exists() {
         match cfg.on_conflict {
             OnConflict::Skip => {
-                return Ok(format!(
-                    "{} existiert bereits, übersprungen",
-                    path.display()
-                ));
+                return Ok(t!(FileExists, path = path.display()));
             }
             OnConflict::Overwrite => {}
             OnConflict::Number => path = numbered(&path),
         }
     }
     let text = content(cfg, package, true)?;
-    std::fs::write(&path, text).with_context(|| format!("{} schreiben", path.display()))?;
-    Ok(format!("gespeichert: {}", path.display()))
+    std::fs::write(&path, text).with_context(|| t!(FileWrite, path = path.display()))?;
+    Ok(t!(FileSaved, path = path.display()))
 }
 
 pub fn preview(cfg: &FileOutput, package: &Package) -> Result<String> {
     let path = target_path(cfg, package)?;
     let mode = match cfg.mode {
         FileMode::New => match cfg.on_conflict {
-            OnConflict::Number => "neue Datei (bei Konflikt nummerieren)",
-            OnConflict::Overwrite => "neue Datei (bei Konflikt überschreiben)",
-            OnConflict::Skip => "neue Datei (bei Konflikt überspringen)",
+            OnConflict::Number => t!(FileModeNumber),
+            OnConflict::Overwrite => t!(FileModeOverwrite),
+            OnConflict::Skip => t!(FileModeSkip),
         },
-        FileMode::Append => "an Datei anhängen",
+        FileMode::Append => t!(FileModeAppend),
     };
     let new_file = cfg.mode == FileMode::New || !path.exists();
     Ok(format!(
-        "Datei: {}\nModus: {mode}\n\n{}",
-        path.display(),
+        "{}\n\n{}",
+        t!(FilePreview, path = path.display(), mode = mode),
         content(cfg, package, new_file)?
     ))
 }
@@ -234,13 +230,13 @@ mod tests {
         )
         .unwrap();
         assert_eq!(job.matches("text=https://").count(), 2);
-        assert!(job.contains("extractPasswords=[\"geheim\"]"));
+        assert!(job.contains("extractPasswords=[\"secret\"]"));
         let custom = content(
             &cfg(dir.path(), FileFormat::Custom, FileMode::New),
             &p,
             true,
         )
         .unwrap();
-        assert!(custom.starts_with("Beispiel.Paket.2026: https://"));
+        assert!(custom.starts_with("Example.Package.2026: https://"));
     }
 }

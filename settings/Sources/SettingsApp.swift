@@ -15,8 +15,17 @@ struct SettingsApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var store = Store()
 
+    init() {
+        // Diagnostics: print a few translated texts in the active language and quit.
+        if CommandLine.arguments.contains("--print-localization") {
+            print([String(localized: "General"), String(localized: "Notifications"), String(localized: "Saved")]
+                .joined(separator: " | "))
+            exit(0)
+        }
+    }
+
     var body: some Scene {
-        Window("kliknload Einstellungen", id: "settings") {
+        Window("kliknload Settings", id: "settings") {
             ContentView()
                 .environmentObject(store)
                 .frame(minWidth: 820, minHeight: 560)
@@ -26,7 +35,7 @@ struct SettingsApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandGroup(after: .saveItem) {
-                Button("Neu laden") { Task { await store.load() } }
+                Button("Reload") { Task { await store.load() } }
                     .keyboardShortcut("r")
             }
         }
@@ -70,10 +79,10 @@ struct ContentView: View {
                 if store.saving {
                     ProgressView().controlSize(.small)
                 } else if store.saveError == nil && store.loadError == nil {
-                    Label("Gespeichert", systemImage: "checkmark.circle")
+                    Label("Saved", systemImage: "checkmark.circle")
                         .labelStyle(.iconOnly)
                         .foregroundStyle(.secondary)
-                        .help("Änderungen werden automatisch gespeichert")
+                        .help("Changes are saved automatically")
                 }
             }
         }
@@ -90,7 +99,7 @@ struct Banner: View {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.yellow)
                 Text(message).font(.callout).textSelection(.enabled)
                 Spacer()
-                Button("Neu laden") { Task { await store.load() } }
+                Button("Reload") { Task { await store.load() } }
             }
             .padding(10)
             .background(.bar)
@@ -106,9 +115,9 @@ struct Sidebar: View {
     var body: some View {
         List(selection: $selection) {
             Section {
-                Label("Allgemein", systemImage: "gearshape").tag(Selection.general)
+                Label("General", systemImage: "gearshape").tag(Selection.general)
             }
-            Section("Ausgaben") {
+            Section("Outputs") {
                 ForEach($store.config.outputs) { $output in
                     OutputRow(output: $output).tag(Selection.output(output.id))
                 }
@@ -129,7 +138,7 @@ struct Sidebar: View {
                 }
                 .buttonStyle(.borderless)
                 .disabled({ if case .output = selection { return false } else { return true } }())
-                .help("Ausgewählte Ausgabe entfernen")
+                .help("Remove the selected output")
                 Spacer()
             }
             .padding(8)
@@ -149,7 +158,7 @@ struct OutputRow: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .labelsHidden()
-                .help(output.enabled ? "Aktiv" : "Inaktiv")
+                .help(output.enabled ? String(localized: "Enabled") : String(localized: "Disabled"))
         }
     }
 }
@@ -187,6 +196,6 @@ struct AddOutputMenu: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Ausgabe hinzufügen")
+        .help("Add output")
     }
 }

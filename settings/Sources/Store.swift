@@ -22,6 +22,8 @@ final class Store: ObservableObject {
     @Published var notificationTestResult: String?
 
     private var loaded = false
+    /// Language the window was started with; a change restarts the window.
+    private var loadedLanguage: String?
     private var saveTask: Task<Void, Never>?
     private let cli: URL
     private let configArg: [String]
@@ -90,10 +92,11 @@ final class Store: ObservableObject {
             configPath = r.configPath
             logPath = r.logPath
             version = r.version
+            loadedLanguage = r.config.language
             loaded = true
             await refreshNotificationStatus()
         } catch {
-            loadError = "kliknload-Kern nicht erreichbar (\(cli.path)): \(error.localizedDescription)"
+            loadError = String(localized: "kliknload core not reachable (\(cli.path)): \(error.localizedDescription)")
         }
     }
 
@@ -114,8 +117,11 @@ final class Store: ObservableObject {
             let r: SaveResponse = try await call(["config", "set"], input: data)
             problems = r.problems ?? []
             saveError = nil
+            if let previous = loadedLanguage, previous != config.language {
+                relaunch()
+            }
         } catch {
-            saveError = "Speichern fehlgeschlagen: \(error.localizedDescription)"
+            saveError = String(localized: "Saving failed: \(error.localizedDescription)")
         }
     }
 
@@ -160,11 +166,26 @@ final class Store: ObservableObject {
             let data = try await Store.run(cli, configArg + ["notify-test"], input: nil)
             notificationTestResult = String(data: data, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines) == "notification sent"
-                ? "Gesendet" : "Fehlgeschlagen"
+                ? String(localized: "Sent") : String(localized: "Failed")
         } catch {
             notificationTestResult = error.localizedDescription
         }
         await refreshNotificationStatus()
+    }
+
+    /// Starts a new window in the newly chosen language and quits this one.
+    private func relaunch() {
+        var args = CommandLine.arguments.dropFirst().filter { !$0.hasPrefix("-Apple") && !$0.hasPrefix("(") }
+        switch config.language {
+        case "en", "de": args += ["-AppleLanguages", "(\(config.language))"]
+        default: break // system language
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.arguments = Array(args)
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
     }
 
     // MARK: - Editing helpers

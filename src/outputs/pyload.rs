@@ -64,7 +64,7 @@ impl Session {
     pub async fn open(cfg: &PyloadOutput) -> Result<Self> {
         let base = expand_env(cfg.url.trim()).trim_end_matches('/').to_string();
         if base.is_empty() {
-            bail!("pyLoad-URL ist nicht eingerichtet");
+            bail!("{}", t!(PyloadNoUrl));
         }
         let http = Client::builder()
             .cookie_store(true)
@@ -83,7 +83,7 @@ impl Session {
         }
         let user = expand_env(cfg.user.trim());
         if user.is_empty() {
-            bail!("pyLoad-Benutzer oder API-Key fehlt");
+            bail!("{}", t!(PyloadNoAuth));
         }
         let password = expand_env(&cfg.password);
 
@@ -91,7 +91,7 @@ impl Session {
             .get(format!("{base}/login"))
             .send()
             .await
-            .with_context(|| format!("Verbindung zu {base} fehlgeschlagen"))?;
+            .with_context(|| t!(PyloadConnect, url = base))?;
         let login_status = login_page.status();
         let html = login_page.text().await.unwrap_or_default();
 
@@ -128,7 +128,7 @@ impl Session {
             .to_string();
         // Success redirects away from the login page; failure re-renders it with 200.
         if !resp.status().is_redirection() || location.contains("/login") {
-            bail!("pyLoad-Login für „{user}“ fehlgeschlagen (Benutzer oder Passwort falsch?)");
+            bail!("{}", t!(PyloadLoginFailed, user = user));
         }
 
         // The session is regenerated on login, so fetch a fresh CSRF token.
@@ -158,8 +158,8 @@ impl Session {
         let body = resp.text().await.unwrap_or_default();
         if !status.is_success() || !got_cookie || body.trim() == "false" {
             bail!(
-                "pyLoad-Login fehlgeschlagen ({})",
-                error_text(status, &body)
+                "{}",
+                t!(PyloadLoginError, error = error_text(status, &body))
             );
         }
         info!("logged into legacy pyLoad at {base} as '{user}'");
@@ -186,7 +186,14 @@ impl Session {
         let status = resp.status();
         let body = resp.text().await?;
         if !status.is_success() {
-            bail!("pyLoad API {func} failed: {}", error_text(status, &body));
+            bail!(
+                "{}",
+                t!(
+                    PyloadApiError,
+                    func = func,
+                    error = error_text(status, &body)
+                )
+            );
         }
         serde_json::from_str(&body)
             .with_context(|| format!("unexpected answer from {func}: {body:.200}"))
@@ -296,37 +303,40 @@ pub async fn deliver(cfg: &PyloadOutput, package: &Package) -> Result<String> {
         .add_package(&name, &package.links, package.password.as_deref(), to_queue)
         .await?;
     let target = if to_queue {
-        "Warteschlange"
+        t!(PyloadQueue)
     } else {
-        "Linksammler"
+        t!(PyloadCollector)
     };
     Ok(match id {
-        Some(id) => format!("Paket „{name}“ (ID {id}) in {target}"),
-        None => format!("Paket „{name}“ in {target}"),
+        Some(id) => t!(PyloadAdded, name = name, id = id, target = target),
+        None => t!(PyloadAddedNoId, name = name, target = target),
     })
 }
 
 pub fn preview(cfg: &PyloadOutput, package: &Package) -> Result<String> {
     let name = package_name(cfg, package)?;
     let target = match cfg.destination {
-        Destination::Queue => "Warteschlange",
-        Destination::Collector => "Linksammler",
+        Destination::Queue => t!(PyloadQueue),
+        Destination::Collector => t!(PyloadCollector),
     };
     let auth = if cfg.api_key.trim().is_empty() {
-        "Benutzer/Passwort"
+        t!(PyloadAuthUser)
     } else {
-        "API-Key"
+        t!(PyloadAuthKey)
     };
-    let mut out = format!(
-        "Ziel: {}\nAnmeldung: {auth}\nPaket: {name}\nIn: {target}\n",
-        expand_env(cfg.url.trim())
+    let mut out = t!(
+        PyloadPreview,
+        url = expand_env(cfg.url.trim()),
+        auth = auth,
+        name = name,
+        target = target
     );
     if let Some(pw) = package.password.as_deref().filter(|p| !p.is_empty()) {
-        out.push_str(&format!("Passwort: {pw}\n"));
+        out.push_str(&t!(PreviewPassword, password = pw));
     }
     out.push_str(&format!(
-        "\n{} Links:\n{}",
-        package.links.len(),
+        "\n{}\n{}",
+        t!(PreviewLinks, count = package.links.len()),
         package.links.join("\n")
     ));
     Ok(out)
@@ -394,7 +404,7 @@ mod tests {
             .await
             .err()
             .unwrap();
-        assert!(err.to_string().contains("Login"), "{err}");
+        assert!(err.to_string().contains("login"), "{err}");
     }
 
     #[tokio::test]

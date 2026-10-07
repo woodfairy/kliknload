@@ -82,9 +82,7 @@ async fn run_once(cfg: &CommandOutput, package: &Package, index: Option<usize>) 
         cmd.current_dir(expand_path(cfg.working_dir.trim()));
     }
 
-    let mut child = cmd
-        .spawn()
-        .context("Befehl konnte nicht gestartet werden")?;
+    let mut child = cmd.spawn().with_context(|| t!(CmdStartFailed))?;
     if let Some(mut stdin) = child.stdin.take() {
         let input = match index {
             Some(i) => package.links[i].clone() + "\n",
@@ -98,7 +96,7 @@ async fn run_once(cfg: &CommandOutput, package: &Package, index: Option<usize>) 
         child.wait_with_output(),
     )
     .await
-    .map_err(|_| anyhow::anyhow!("Zeitüberschreitung nach {} s", cfg.timeout_secs))??;
+    .map_err(|_| anyhow::anyhow!("{}", t!(CmdTimeout, secs = cfg.timeout_secs)))??;
 
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
@@ -109,7 +107,7 @@ async fn run_once(cfg: &CommandOutput, package: &Package, index: Option<usize>) 
             .last()
             .or_else(|| stdout.trim().lines().last())
             .unwrap_or("");
-        bail!("Befehl beendet mit {}: {detail}", out.status);
+        bail!("{}", t!(CmdExit, status = out.status, detail = detail));
     }
     Ok(stdout.trim().lines().last().unwrap_or("").to_string())
 }
@@ -121,8 +119,8 @@ pub async fn deliver(cfg: &CommandOutput, package: &Package) -> Result<String> {
             last = run_once(cfg, package, Some(i)).await?;
         }
         Ok(format!(
-            "{} Aufrufe erfolgreich{}",
-            package.links.len(),
+            "{}{}",
+            t!(CmdOkMany, count = package.links.len()),
             if last.is_empty() {
                 String::new()
             } else {
@@ -132,22 +130,23 @@ pub async fn deliver(cfg: &CommandOutput, package: &Package) -> Result<String> {
     } else {
         let out = run_once(cfg, package, None).await?;
         Ok(if out.is_empty() {
-            "Befehl erfolgreich".into()
+            t!(CmdOk)
         } else {
-            format!("Befehl erfolgreich: {out}")
+            t!(CmdOkOutput, output = out)
         })
     }
 }
 
 pub fn preview(cfg: &CommandOutput, package: &Package) -> Result<String> {
     let runs = if cfg.per_link {
-        format!("{} Aufrufe (einer pro Link)", package.links.len())
+        t!(CmdRunsPerLink, count = package.links.len())
     } else {
-        "1 Aufruf".into()
+        t!(CmdRunsOne)
     };
     let mut out = format!(
-        "$ {}\n{runs}, stdin: Links zeilenweise\n\nUmgebungsvariablen:\n",
-        cfg.command.trim()
+        "$ {}\n{}\n",
+        cfg.command.trim(),
+        t!(CmdPreview, runs = runs)
     );
     let index = cfg.per_link.then_some(0);
     for (k, v) in environment(package, index) {
@@ -175,7 +174,7 @@ mod tests {
         let mut p = Package::sample();
         p.name = "$(touch /tmp/kliknload-pwned); `id`".into();
         let msg = deliver(&cfg, &p).await.unwrap();
-        assert!(msg.ends_with("2|$(touch /tmp/kliknload-pwned); `id`|https://hoster.example/file/abc123/Beispiel.part1.rar"), "{msg}");
+        assert!(msg.ends_with("2|$(touch /tmp/kliknload-pwned); `id`|https://hoster.example/file/abc123/Example.part1.rar"), "{msg}");
     }
 
     #[tokio::test]
@@ -198,7 +197,7 @@ mod tests {
                 .await
                 .unwrap_err()
                 .to_string()
-                .contains("Zeitüberschreitung")
+                .contains("timed out")
         );
     }
 }

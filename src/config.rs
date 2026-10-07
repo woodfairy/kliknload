@@ -20,6 +20,10 @@ fn default_listen() -> String {
     DEFAULT_LISTEN.to_string()
 }
 
+fn default_language() -> String {
+    "en".to_string()
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Notifications {
@@ -48,6 +52,9 @@ fn de_notifications<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Notificati
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
+    /// UI language: `en`, `de` or `system`.
+    #[serde(default = "default_language")]
+    pub language: String,
     /// Address of the Click'n'Load listener. Browsers always talk to 127.0.0.1:9666;
     /// use `0.0.0.0:9666` inside Docker. `$KLIKNLOAD_LISTEN` overrides it.
     #[serde(default = "default_listen")]
@@ -119,13 +126,13 @@ impl OutputKind {
         }
     }
 
-    pub fn default_name(&self) -> &'static str {
+    pub fn default_name(&self) -> String {
         match self {
-            OutputKind::Pyload(_) => "pyLoad",
-            OutputKind::Clipboard(_) => "Zwischenablage",
-            OutputKind::File(_) => "Datei",
-            OutputKind::Http(_) => "HTTP-Request",
-            OutputKind::Command(_) => "Befehl",
+            OutputKind::Pyload(_) => t!(TypePyload),
+            OutputKind::Clipboard(_) => t!(TypeClipboard),
+            OutputKind::File(_) => t!(TypeFile),
+            OutputKind::Http(_) => t!(TypeHttp),
+            OutputKind::Command(_) => t!(TypeCommand),
         }
     }
 }
@@ -378,7 +385,7 @@ impl Output {
     pub fn new(kind: OutputKind, enabled: bool) -> Self {
         Self {
             id: kind.type_name().to_string(),
-            name: kind.default_name().to_string(),
+            name: kind.default_name(),
             enabled,
             include: None,
             exclude: None,
@@ -386,11 +393,11 @@ impl Output {
         }
     }
 
-    pub fn display_name(&self) -> &str {
+    pub fn display_name(&self) -> String {
         if self.name.trim().is_empty() {
             self.kind.default_name()
         } else {
-            &self.name
+            self.name.clone()
         }
     }
 }
@@ -398,6 +405,7 @@ impl Output {
 impl Default for Config {
     fn default() -> Self {
         Self {
+            language: default_language(),
             listen: default_listen(),
             notifications: Notifications::All,
             clipboard_fallback: true,
@@ -494,7 +502,7 @@ impl Config {
             }
             o.id = id;
             if o.name.trim().is_empty() {
-                o.name = o.kind.default_name().to_string();
+                o.name = o.kind.default_name();
             }
         }
     }
@@ -503,20 +511,18 @@ impl Config {
     pub fn validate(&self) -> Vec<String> {
         let mut errors = Vec::new();
         if self.listen.parse::<std::net::SocketAddr>().is_err() {
-            errors.push(format!(
-                "Listen-Adresse „{}“ ist ungültig (z.B. 127.0.0.1:9666)",
-                self.listen
-            ));
+            errors.push(t!(ValidListen, addr = self.listen));
         }
         for o in &self.outputs {
             let n = o.display_name();
-            for (label, re) in [("Einschließen", &o.include), ("Ausschließen", &o.exclude)] {
+            for (label, re) in [
+                (t!(ValidInclude), &o.include),
+                (t!(ValidExclude), &o.exclude),
+            ] {
                 if let Some(re) = re.as_deref().filter(|r| !r.is_empty())
                     && let Err(e) = regex::Regex::new(re)
                 {
-                    errors.push(format!(
-                        "{n}: Filter „{label}“ ist kein gültiger Regex: {e}"
-                    ));
+                    errors.push(t!(ValidRegex, name = n, label = label, error = e));
                 }
             }
             if !o.enabled {
@@ -525,31 +531,31 @@ impl Config {
             match &o.kind {
                 OutputKind::Pyload(p) => {
                     if p.url.trim().is_empty() {
-                        errors.push(format!("{n}: pyLoad-URL fehlt"));
+                        errors.push(t!(ValidPyloadUrl, name = n));
                     }
                     if p.api_key.trim().is_empty() && p.user.trim().is_empty() {
-                        errors.push(format!("{n}: Benutzer oder API-Key fehlt"));
+                        errors.push(t!(ValidPyloadAuth, name = n));
                     }
                 }
                 OutputKind::File(f) => {
                     if f.directory.trim().is_empty() {
-                        errors.push(format!("{n}: Ordner fehlt"));
+                        errors.push(t!(ValidDirectory, name = n));
                     }
                     if f.filename.trim().is_empty() {
-                        errors.push(format!("{n}: Dateiname fehlt"));
+                        errors.push(t!(ValidFilename, name = n));
                     }
                 }
                 OutputKind::Http(h) => {
                     if h.url.trim().is_empty() {
-                        errors.push(format!("{n}: URL fehlt"));
+                        errors.push(t!(ValidUrl, name = n));
                     }
                     if reqwest::Method::from_bytes(h.method.trim().as_bytes()).is_err() {
-                        errors.push(format!("{n}: HTTP-Methode „{}“ ist ungültig", h.method));
+                        errors.push(t!(ValidMethod, name = n, method = h.method));
                     }
                 }
                 OutputKind::Command(c) => {
                     if c.command.trim().is_empty() {
-                        errors.push(format!("{n}: Befehl fehlt"));
+                        errors.push(t!(ValidCommand, name = n));
                     }
                 }
                 OutputKind::Clipboard(_) => {}

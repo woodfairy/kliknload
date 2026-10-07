@@ -97,7 +97,7 @@ async fn add_crypted2(State(app): State<Arc<App>>, RawQuery(q): RawQuery, body: 
     let links = match cnl::decrypt_links(crypted, jk) {
         Ok(l) => l,
         Err(e) => {
-            crate::platform::notify("Click'n'Load-Fehler", &format!("{e:#}"));
+            crate::platform::notify(&t!(NotifyCnlError), &format!("{e:#}"));
             return failed(format!("{e:#}"));
         }
     };
@@ -164,7 +164,7 @@ pub async fn run(app: Arc<App>) {
     let addr: SocketAddr = match listen.parse() {
         Ok(a) => a,
         Err(_) => {
-            let msg = format!("Ungültige Listen-Adresse „{listen}“");
+            let msg = t!(ServerInvalidListen, addr = listen);
             error!("{msg}");
             app.emit(AppEvent::Server(ServerStatus::Failed(msg)));
             return;
@@ -173,12 +173,9 @@ pub async fn run(app: Arc<App>) {
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(l) => l,
         Err(e) => {
-            let msg = format!("{addr} nicht verfügbar: {e}");
+            let msg = t!(ServerUnavailable, addr = addr, error = e);
             error!("{msg} – is JDownloader or another Click'n'Load tool running?");
-            crate::platform::notify(
-                "kliknload",
-                &format!("{msg}. Läuft JDownloader oder ein anderes Click'n'Load-Tool?"),
-            );
+            crate::platform::notify("kliknload", &t!(NotifyPortBusy, msg = msg));
             app.emit(AppEvent::Server(ServerStatus::Failed(msg)));
             return;
         }

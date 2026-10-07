@@ -70,6 +70,8 @@ plist() { # name, bundle id, executable, background-only
     <key>CFBundleIdentifier</key><string>$2</string>
     <key>CFBundleExecutable</key><string>$3</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
+    <key>CFBundleLocalizations</key><array><string>en</string><string>de</string></array>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleVersion</key><string>$VERSION</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
@@ -93,6 +95,8 @@ plist kliknload "$BUNDLE_ID" kliknload true > "$APP/Contents/Info.plist"
 
 cp "$BUILD/kliknload-settings" "$HELPER/Contents/MacOS/kliknload-settings"
 cp "$BUILD/AppIcon.icns" "$HELPER/Contents/Resources/AppIcon.icns"
+python3 scripts/localization.py >/dev/null || { python3 scripts/localization.py; exit 1; }
+cp -R settings/Resources/*.lproj "$HELPER/Contents/Resources/"
 plist "kliknload Settings" "$BUNDLE_ID.settings" kliknload-settings false > "$HELPER/Contents/Info.plist"
 
 # Ad-hoc signature, inner bundle first.

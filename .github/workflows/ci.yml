@@ -63,6 +63,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
+      - name: Settings window translations complete
+        run: python3 scripts/localization.py
       - name: Build universal app bundle
         run: scripts/bundle.sh --universal
       - name: Zip
