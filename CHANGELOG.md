@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Start at login works again after the app was moved (e.g. from `~/Applications` to
+  `/Applications`): kliknload now registers as a regular login item via `SMAppService`
+  instead of a LaunchAgent with a fixed path. Existing LaunchAgents are replaced on the
+  next start, and the setting reflects the switch in System Settings → Login Items
+
 ## [1.0.0] - 2026-10-07
 
 First release.

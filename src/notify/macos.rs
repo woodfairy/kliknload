@@ -5,32 +5,13 @@
 //! plain binary (e.g. `cargo run`, `--headless` in a terminal), `osascript` is used.
 
 use super::Permission;
+use crate::objc::*;
 use anyhow::{Result, bail};
-use std::ffi::{CStr, CString, c_char, c_void};
+use std::ffi::c_void;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use tracing::{info, warn};
-
-type Id = *mut c_void;
-type Sel = *const c_void;
-
-#[link(name = "objc")]
-unsafe extern "C" {
-    fn objc_getClass(name: *const c_char) -> Id;
-    fn objc_getProtocol(name: *const c_char) -> Id;
-    fn sel_registerName(name: *const c_char) -> Sel;
-    fn objc_msgSend();
-    fn objc_allocateClassPair(superclass: Id, name: *const c_char, extra: usize) -> Id;
-    fn objc_registerClassPair(class: Id);
-    fn class_addMethod(class: Id, name: Sel, imp: *const c_void, types: *const c_char) -> bool;
-    fn class_addProtocol(class: Id, protocol: Id) -> bool;
-    fn objc_autoreleasePoolPush() -> *mut c_void;
-    fn objc_autoreleasePoolPop(pool: *mut c_void);
-}
-
-#[link(name = "Foundation", kind = "framework")]
-unsafe extern "C" {}
 
 #[link(name = "UserNotifications", kind = "framework")]
 unsafe extern "C" {}
@@ -80,50 +61,6 @@ fn global_block<F>(invoke: F) -> *const Block<F> {
     }))
 }
 
-fn cstring(s: &str) -> CString {
-    CString::new(s.replace('\0', "")).expect("no NUL bytes left")
-}
-
-fn sel(name: &str) -> Sel {
-    let c = cstring(name);
-    unsafe { sel_registerName(c.as_ptr()) }
-}
-
-fn class(name: &str) -> Id {
-    let c = cstring(name);
-    unsafe { objc_getClass(c.as_ptr()) }
-}
-
-/// `objc_msgSend` has to be called through a pointer of the exact method signature.
-macro_rules! msg {
-    ($obj:expr, $sel:expr $(, $arg:expr => $ty:ty)* ; -> $ret:ty) => {{
-        let f: unsafe extern "C" fn(Id, Sel $(, $ty)*) -> $ret =
-            std::mem::transmute(objc_msgSend as unsafe extern "C" fn());
-        f($obj, sel($sel) $(, $arg)*)
-    }};
-}
-
-unsafe fn nsstring(s: &str) -> Id {
-    let c = cstring(s);
-    unsafe { msg!(class("NSString"), "stringWithUTF8String:", c.as_ptr() => *const c_char; -> Id) }
-}
-
-/// True when running from an `.app` bundle with a bundle identifier.
-fn bundled() -> bool {
-    static BUNDLED: OnceLock<bool> = OnceLock::new();
-    *BUNDLED.get_or_init(|| unsafe {
-        let pool = objc_autoreleasePoolPush();
-        let bundle = msg!(class("NSBundle"), "mainBundle"; -> Id);
-        let ok = !bundle.is_null() && !msg!(bundle, "bundleIdentifier"; -> Id).is_null() && {
-            let path = msg!(bundle, "bundlePath"; -> Id);
-            let utf8 = msg!(path, "UTF8String"; -> *const c_char);
-            !utf8.is_null() && CStr::from_ptr(utf8).to_string_lossy().ends_with(".app")
-        };
-        objc_autoreleasePoolPop(pool);
-        ok
-    })
-}
-
 /// `userNotificationCenter:willPresentNotification:withCompletionHandler:`
 /// Shows banners even while kliknload is the active app (e.g. its menu is open).
 unsafe extern "C" fn will_present(
@@ -151,16 +88,8 @@ unsafe extern "C" fn authorization_done(_block: *mut c_void, granted: bool, erro
     } else if error.is_null() {
         warn!("notifications are disabled for kliknload in System Settings → Notifications");
     } else {
-        unsafe {
-            let desc = msg!(error, "localizedDescription"; -> Id);
-            let utf8 = msg!(desc, "UTF8String"; -> *const c_char);
-            let text = if utf8.is_null() {
-                String::new()
-            } else {
-                CStr::from_ptr(utf8).to_string_lossy().into_owned()
-            };
-            warn!("notification permission request failed: {text}");
-        }
+        let text = unsafe { string(msg!(error, "localizedDescription"; -> Id)) };
+        warn!("notification permission request failed: {text}");
     }
 }
 

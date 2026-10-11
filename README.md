@@ -123,7 +123,7 @@ kliknload [--headless] [--config PATH]   run (menu bar app on macOS)
 kliknload --test-connection              log into the first pyLoad output
 kliknload config get | set               print / replace the config as JSON
 kliknload output preview | test          preview / try an output given as JSON on stdin
-kliknload autostart on | off             start at login (macOS LaunchAgent)
+kliknload autostart on | off             start at login (macOS login item)
 kliknload notify-test [TEXT]             send a test desktop notification
 ```
 

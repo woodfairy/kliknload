@@ -18,6 +18,8 @@ mod icon;
 #[cfg(test)]
 mod mock_pyload;
 mod notify;
+#[cfg(target_os = "macos")]
+mod objc;
 mod outputs;
 mod platform;
 mod server;
@@ -286,6 +288,7 @@ fn main() -> Result<()> {
 
     #[cfg(feature = "gui")]
     {
+        platform::migrate_autostart();
         tray::run(move |proxy| {
             let app = App::new(cfg, config_path, move |event| {
                 let _ = proxy.send_event(tray::UserEvent::App(event));
